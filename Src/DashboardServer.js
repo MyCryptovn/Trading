@@ -17,11 +17,10 @@ export function createDashboardServer({ state, config, getEquity, getDailyPnlPct
   }
 
   function update({ ticker = null, action = "HOLD", signal = null, scan = null, risk = null } = {}) {
-    if (ticker) {
-      market.set(ticker.productId, ticker);
-    }
+    if (ticker) market.set(ticker.productId, ticker);
 
-    const price = ticker?.price ?? null;
+    const assetProduct = `${config.asset}-USD`;
+    const price = ticker?.productId === assetProduct ? ticker.price : null;
     if (Number.isFinite(price)) {
       const equity = getEquity(state, price);
       history.push({ time: new Date().toISOString(), equity });
@@ -91,9 +90,7 @@ export function createDashboardServer({ state, config, getEquity, getDailyPnlPct
 
   function start({ port = Number(process.env.PORT) || 3000, host = "0.0.0.0" } = {}) {
     server = http.createServer(handler);
-    server.listen(port, host, () => {
-      pushActivity(`Dashboard listening on ${host}:${port}`, "system");
-    });
+    server.listen(port, host, () => pushActivity(`Dashboard listening on ${host}:${port}`, "system"));
     return server;
   }
 
