@@ -1,4 +1,4 @@
-name: DEX Bot Paper Test
+DEX Bot Paper Test
 
 on:
   workflow_dispatch:
