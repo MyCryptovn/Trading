@@ -37,6 +37,8 @@ jobs:
           test -f Src/RiskEngine.js
           test -f Src/TokenSafetyScanner.js
           test -f Src/TokenSafetyScanner.test.js
+          test -f Src/CapitalFlowScanner.js
+          test -f Src/CapitalFlowScanner.test.js
           test -f Src/MarketFeed.js
           test -f Src/MarketScanner.js
           test -f Src/SignalEngine.js
@@ -49,12 +51,17 @@ jobs:
           node --check Src/RiskEngine.js
           node --check Src/TokenSafetyScanner.js
           node --check Src/TokenSafetyScanner.test.js
+          node --check Src/CapitalFlowScanner.js
+          node --check Src/CapitalFlowScanner.test.js
           node --check Src/MarketFeed.js
           node --check Src/MarketScanner.js
           node --check Src/SignalEngine.js
 
       - name: Token Safety Unit Test
         run: node Src/TokenSafetyScanner.test.js
+
+      - name: Capital Flow Unit Test
+        run: node Src/CapitalFlowScanner.test.js
 
       - name: Paper Bot Smoke Test
         run: npm test
