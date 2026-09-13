@@ -15,7 +15,9 @@ export function createMarketScanner({
       return {
         signal: "WARMUP",
         productId: ticker.productId,
-        movePct: 0
+        movePct: 0,
+        spreadPct: null,
+        volume24h: ticker.volume24h
       };
     }
 
@@ -47,7 +49,8 @@ export function createMarketScanner({
       signal,
       productId: ticker.productId,
       movePct: movePctFromLast,
-      spreadPct
+      spreadPct,
+      volume24h: ticker.volume24h
     };
   }
 
