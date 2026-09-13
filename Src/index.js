@@ -4,6 +4,7 @@ import { decide } from "./Strategy.js";
 import { startMarketFeed } from "./MarketFeed.js";
 import { createMarketScanner } from "./MarketScanner.js";
 import { evaluateSignal } from "./SignalEngine.js";
+import { createRiskEngine } from "./RiskEngine.js";
 import {
   createPaperTrader,
   buy,
@@ -14,11 +15,34 @@ import { log, logError } from "./logger.js";
 
 const state = createPaperTrader(config.startBalance);
 const scanner = createMarketScanner();
+const risk = createRiskEngine();
+const startingEquity = config.startBalance;
 let previousPrice = null;
+
+function dailyPnlPct(price) {
+  const equity = getEquity(state, price);
+  return ((equity - startingEquity) / startingEquity) * 100;
+}
+
+function riskCheck(action, price) {
+  const equity = getEquity(state, price);
+  const expectedMovePct = action === "BUY"
+    ? config.buyDropPct
+    : config.sellRisePct;
+
+  return risk.evaluate({
+    action,
+    equityUsd: equity,
+    expectedMovePct,
+    feePct: state.costs.feeRate * 100,
+    slippagePct: state.costs.slippageRate * 100,
+    dailyPnlPct: dailyPnlPct(price)
+  });
+}
 
 function showStatus(price, action) {
   const equity = getEquity(state, price);
-  log(`${config.asset} | $${price.toFixed(2)} | ${action} | Paper equity: $${equity.toFixed(2)}`);
+  log(`${config.asset} | $${price.toFixed(2)} | ${action} | Paper equity: $${equity.toFixed(2)} | PnL: ${dailyPnlPct(price).toFixed(2)}%`);
 }
 
 async function tick() {
@@ -32,12 +56,16 @@ async function tick() {
     sellRisePct: config.sellRisePct
   });
 
-  if (action === "BUY" && buy(state, price)) {
-    log(`PAPER BUY ${config.asset} at $${price.toFixed(2)}`);
-  }
+  if (action === "BUY" || action === "SELL") {
+    const check = riskCheck(action, price);
 
-  if (action === "SELL" && sell(state, price)) {
-    log(`PAPER SELL ${config.asset} at $${price.toFixed(2)}`);
+    if (!check.allowed) {
+      log(`RISK BLOCK ${action} ${check.reason} | net edge: ${Number.isFinite(check.netEdgePct) ? check.netEdgePct.toFixed(2) : "n/a"}%`);
+    } else if (action === "BUY" && buy(state, price, check.maxTradeUsd)) {
+      log(`PAPER BUY ${config.asset} at $${price.toFixed(2)} | size $${check.maxTradeUsd.toFixed(2)}`);
+    } else if (action === "SELL" && sell(state, price)) {
+      log(`PAPER SELL ${config.asset} at $${price.toFixed(2)}`);
+    }
   }
 
   showStatus(price, action);
@@ -57,9 +85,9 @@ async function start() {
   log("Market feed: Coinbase WebSocket");
   log("Market scanner: multi-coin fast-move detection");
   log("Signal engine: spread + liquidity + movement filter");
+  log("Risk engine: trade-size + daily-loss + net-edge guard");
   log("================================");
 
-  // CI/smoke-test mode keeps one deterministic REST tick.
   if (process.env.RUN_ONCE === "1") {
     await tick();
     log("RUN_ONCE completed successfully");
@@ -102,7 +130,6 @@ async function start() {
     onError: error => logError(error)
   });
 
-  // Keep the existing paper strategy alive for the configured asset.
   await tick();
 
   setInterval(async () => {
