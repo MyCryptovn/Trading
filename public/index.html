@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DEX Bot — Paper Trading Dashboard</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b1020;color:#e8ecf7;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:1400px;margin:auto;padding:20px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center;flex-wrap:wrap}.brand{font-size:24px;font-weight:800}.badge{display:inline-block;padding:7px 11px;border-radius:999px;background:#513c13;color:#ffd76a;font-size:12px;font-weight:800}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}.card{background:#121a2d;border:1px solid #26324c;border-radius:14px;padding:16px;box-shadow:0 8px 30px #0003}.label{color:#8e9ab4;font-size:12px}.value{font-size:25px;font-weight:800;margin-top:6px}.up{color:#58d68d}.down{color:#ff7070}.section{margin-top:14px}.section h2{font-size:16px;margin:0 0 10px}.chart{height:230px;width:100%;display:block;background:#0e1628;border-radius:10px}.two{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}.table{width:100%;border-collapse:collapse;font-size:13px}.table th,.table td{padding:9px 7px;border-bottom:1px solid #222d44;text-align:left}.table th{color:#8491ad;font-weight:600}.scroll{max-height:300px;overflow:auto}.status{display:flex;gap:8px;flex-wrap:wrap}.pill{padding:6px 9px;border-radius:8px;background:#17223a;color:#b9c4da;font-size:12px}.activity{font-size:12px;line-height:1.45}.activity div{padding:8px 0;border-bottom:1px solid #222d44}.muted{color:#8290aa}@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}@media(max-width:560px){main{padding:12px}.grid{grid-template-columns:1fr 1fr}.value{font-size:20px}.table{font-size:11px}.card{padding:12px}}
+</style>
+</head>
+<body><main>
+<div class="top"><div><div class="brand">DEX Bot Dashboard</div><div class="muted">Live monitoring of the paper engine</div></div><div><span class="badge">PAPER MODE — REAL MONEY DISABLED</span></div></div>
+<div class="grid">
+<div class="card"><div class="label">Paper Equity</div><div id="equity" class="value">$0.00</div><div id="pnl" class="muted">PnL $0.00 (0.00%)</div></div>
+<div class="card"><div class="label">Available USD</div><div id="cash" class="value">$0.00</div><div class="muted">Cash balance</div></div>
+<div class="card"><div class="label">Position</div><div id="position" class="value">0</div><div id="entry" class="muted">Entry: —</div></div>
+<div class="card"><div class="label">Bot State</div><div id="state" class="value">ONLINE</div><div id="server" class="muted">Waiting for data…</div></div>
+</div>
+<div class="card section"><h2>Equity / Balance History</h2><canvas id="chart" class="chart"></canvas></div>
+<div class="two section">
+<div class="card"><h2>Markets</h2><div class="scroll"><table class="table"><thead><tr><th>Pair</th><th>Price</th><th>24h</th><th>Bid / Ask</th></tr></thead><tbody id="markets"></tbody></table></div></div>
+<div class="card"><h2>Safety & Strategy</h2><div class="status"><span class="pill">Wallet: OFF</span><span class="pill">Signing: OFF</span><span class="pill">Transactions: OFF</span><span class="pill">Paper execution: ON</span></div><div class="section muted">The dashboard reports the bot's actual paper state. It does not claim that simulated profits are real profits.</div></div>
+</div>
+<div class="two section">
+<div class="card"><h2>Recent Paper Trades</h2><div class="scroll"><table class="table"><thead><tr><th>Side</th><th>Price</th><th>Size</th><th>Fee</th><th>Time</th></tr></thead><tbody id="trades"></tbody></table></div></div>
+<div class="card"><h2>Activity</h2><div id="activity" class="activity scroll"></div></div>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);const money=n=>Number.isFinite(Number(n))?'$'+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'—';const num=n=>Number.isFinite(Number(n))?Number(n).toLocaleString(undefined,{maximumFractionDigits:8}):'—';
+function draw(points){const c=$("chart"),r=c.getBoundingClientRect(),d=devicePixelRatio||1;c.width=r.width*d;c.height=r.height*d;const x=c.getContext('2d');x.scale(d,d);const w=r.width,h=r.height;x.clearRect(0,0,w,h);if(points.length<2)return;const vals=points.map(p=>p.equity),min=Math.min(...vals),max=Math.max(...vals),span=max-min||1;x.strokeStyle='#33415f';x.lineWidth=1;for(let i=1;i<5;i++){const y=i*h/5;x.beginPath();x.moveTo(0,y);x.lineTo(w,y);x.stroke()}x.strokeStyle='#68a0ff';x.lineWidth=2;x.beginPath();points.forEach((p,i)=>{const px=i*(w-10)/(points.length-1)+5,py=h-10-(p.equity-min)/span*(h-20);i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke()}
+async function refresh(){try{const r=await fetch('/api/status',{cache:'no-store'});const d=await r.json();$("equity").textContent=money(d.equity);const pc=Number(d.pnlPct)||0;$("pnl").textContent=`PnL ${money(d.pnlUsd)} (${pc.toFixed(2)}%)`;$("pnl").className=pc>=0?'up':'down';$("cash").textContent=money(d.cashUsd);$("position").textContent=num(d.assetAmount);$("entry").textContent='Entry: '+(d.entryPrice?money(d.entryPrice):'—');$("server").textContent='Updated '+new Date(d.serverTime).toLocaleTimeString();draw(d.history||[]);
+$("markets").innerHTML=(d.markets||[]).map(t=>`<tr><td>${t.productId}</td><td>${money(t.price)}</td><td class="${t.change24hPct>=0?'up':'down'}">${Number(t.change24hPct||0).toFixed(2)}%</td><td>${num(t.bid)} / ${num(t.ask)}</td></tr>`).join('');
+$("trades").innerHTML=(d.trades||[]).map(t=>`<tr><td class="${t.side==='BUY'?'up':'down'}">${t.side}</td><td>${money(t.executionPrice)}</td><td>${money(t.tradeUsd||t.grossUsd)}</td><td>${money(t.feeUsd)}</td><td>${new Date(t.time).toLocaleTimeString()}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">No paper trades yet</td></tr>';
+$("activity").innerHTML=(d.activity||[]).map(a=>`<div><span class="muted">${new Date(a.time).toLocaleTimeString()}</span> — ${a.message}</div>`).join('')||'<div class="muted">Waiting for bot activity…</div>';
+}catch(e){$("state").textContent='OFFLINE';$("server").textContent='Dashboard API unavailable';}}
+refresh();setInterval(refresh,2000);addEventListener('resize',refresh);
+</script></body></html>
