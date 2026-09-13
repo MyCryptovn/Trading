@@ -3,6 +3,7 @@ import { getPrice } from "./maket.js";
 import { decide } from "./Strategy.js";
 import { startMarketFeed } from "./MarketFeed.js";
 import { createMarketScanner } from "./MarketScanner.js";
+import { evaluateSignal } from "./SignalEngine.js";
 import {
   createPaperTrader,
   buy,
@@ -55,6 +56,7 @@ async function start() {
   log(`Starting balance: $${config.startBalance}`);
   log("Market feed: Coinbase WebSocket");
   log("Market scanner: multi-coin fast-move detection");
+  log("Signal engine: spread + liquidity + movement filter");
   log("================================");
 
   // CI/smoke-test mode keeps one deterministic REST tick.
@@ -67,6 +69,11 @@ async function start() {
   startMarketFeed({
     onTicker: ticker => {
       const scan = scanner.update(ticker);
+      const signal = evaluateSignal({
+        movePct: scan.movePct,
+        spreadPct: scan.spreadPct,
+        volume24h: scan.volume24h
+      });
 
       log(
         `TICKER ${ticker.productId} | $${ticker.price.toFixed(6)} | ` +
@@ -82,6 +89,13 @@ async function start() {
         log(
           `SCAN ${scan.signal} ${scan.productId} | ` +
           `move ${scan.movePct.toFixed(3)}% | spread ${spread}`
+        );
+      }
+
+      if (signal.action !== "HOLD") {
+        log(
+          `SIGNAL ${signal.action} ${signal.reason} ${ticker.productId} | ` +
+          `move ${scan.movePct.toFixed(3)}%`
         );
       }
     },
