@@ -35,6 +35,7 @@ jobs:
           test -f Src/Papertrader.js
           test -f Src/TradingCosts.js
           test -f Src/RiskEngine.js
+          test -f Src/TokenSafetyScanner.js
           test -f Src/MarketFeed.js
           test -f Src/MarketScanner.js
           test -f Src/SignalEngine.js
@@ -45,6 +46,7 @@ jobs:
           node --check Src/index.js
           node --check Src/Papertrader.js
           node --check Src/RiskEngine.js
+          node --check Src/TokenSafetyScanner.js
           node --check Src/MarketFeed.js
           node --check Src/MarketScanner.js
           node --check Src/SignalEngine.js
