@@ -33,10 +33,21 @@ jobs:
           test -f Src/maket.js
           test -f Src/Strategy.js
           test -f Src/Papertrader.js
+          test -f Src/TradingCosts.js
+          test -f Src/RiskEngine.js
+          test -f Src/MarketFeed.js
+          test -f Src/MarketScanner.js
+          test -f Src/SignalEngine.js
           test -f Src/logger.js
 
       - name: Syntax Check
-        run: node --check Src/index.js
+        run: |
+          node --check Src/index.js
+          node --check Src/Papertrader.js
+          node --check Src/RiskEngine.js
+          node --check Src/MarketFeed.js
+          node --check Src/MarketScanner.js
+          node --check Src/SignalEngine.js
 
       - name: Paper Bot Smoke Test
         run: npm test
