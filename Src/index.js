@@ -7,19 +7,14 @@ import {
   sell,
   getEquity
 } from "./Papertrader.js";
-import {
-  log,
-  logError
-} from "./logger.js";
+import { log, logError } from "./logger.js";
 
 const state = createPaperTrader(config.startBalance);
 let previousPrice = null;
 
 function showStatus(price, action) {
   const equity = getEquity(state, price);
-  log(
-    `${config.asset} | $${price.toFixed(2)} | ${action} | Paper equity: $${equity.toFixed(2)}`
-  );
+  log(`${config.asset} | $${price.toFixed(2)} | ${action} | Paper equity: $${equity.toFixed(2)}`);
 }
 
 async function tick() {
@@ -58,11 +53,11 @@ async function start() {
   log(`Polling: every ${config.pollSeconds}s`);
   log("================================");
 
-  try {
-    await tick();
-  } catch (error) {
-    logError(error);
-    process.exitCode = 1;
+  await tick();
+
+  // CI/smoke-test mode: run exactly one successful tick and exit.
+  if (process.env.RUN_ONCE === "1") {
+    log("RUN_ONCE completed successfully");
     return;
   }
 
