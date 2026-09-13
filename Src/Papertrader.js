@@ -1,48 +1,69 @@
-export function createPaperTrader(startUsd) {
+import { createTradingCosts } from "./TradingCosts.js";
+
+export function createPaperTrader(startUsd, costs = {}) {
   return {
     usd: startUsd,
     asset: 0,
     entryPrice: null,
-    trades: []
+    trades: [],
+    costs: createTradingCosts(costs)
   };
 }
 
 export function buy(state, price) {
-  if (state.usd <= 0) {
+  if (state.usd <= 0 || !Number.isFinite(price) || price <= 0) {
     return false;
   }
 
-  const amount =
-    state.usd / price;
+  const executionPrice = state.costs.buyPrice(price);
+  const grossUsd = state.usd;
+  const feeUsd = state.costs.fee(grossUsd);
+  const netUsd = grossUsd - feeUsd;
+  const amount = netUsd / executionPrice;
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return false;
+  }
 
   state.asset += amount;
-  state.entryPrice = price;
+  state.entryPrice = executionPrice;
+  state.usd = 0;
 
   state.trades.push({
     side: "BUY",
-    price,
+    quotedPrice: price,
+    executionPrice,
     amount,
+    feeUsd,
     time: new Date().toISOString()
   });
-
-  state.usd = 0;
 
   return true;
 }
 
 export function sell(state, price) {
-  if (state.asset <= 0) {
+  if (state.asset <= 0 || !Number.isFinite(price) || price <= 0) {
     return false;
   }
 
   const amount = state.asset;
+  const executionPrice = state.costs.sellPrice(price);
+  const grossUsd = amount * executionPrice;
+  const feeUsd = state.costs.fee(grossUsd);
+  const netUsd = grossUsd - feeUsd;
 
-  state.usd += amount * price;
+  if (!Number.isFinite(netUsd) || netUsd < 0) {
+    return false;
+  }
+
+  state.usd += netUsd;
 
   state.trades.push({
     side: "SELL",
-    price,
+    quotedPrice: price,
+    executionPrice,
     amount,
+    feeUsd,
     time: new Date().toISOString()
   });
 
@@ -53,8 +74,9 @@ export function sell(state, price) {
 }
 
 export function getEquity(state, price) {
-  return (
-    state.usd +
-    state.asset * price
-  );
+  if (!Number.isFinite(price) || price < 0) {
+    return state.usd;
+  }
+
+  return state.usd + state.asset * price;
 }
