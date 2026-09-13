@@ -41,6 +41,8 @@ jobs:
           test -f Src/CapitalFlowScanner.test.js
           test -f Src/OnchainDataAdapter.js
           test -f Src/OnchainDataAdapter.test.js
+          test -f Src/DashboardServer.js
+          test -f public/index.html
           test -f Src/MarketFeed.js
           test -f Src/MarketScanner.js
           test -f Src/SignalEngine.js
@@ -49,6 +51,7 @@ jobs:
       - name: Syntax Check
         run: |
           node --check Src/index.js
+          node --check Src/DashboardServer.js
           node --check Src/Papertrader.js
           node --check Src/RiskEngine.js
           node --check Src/TokenSafetyScanner.js
