@@ -2,6 +2,7 @@ import { config } from "./config.js";
 import { getPrice } from "./maket.js";
 import { decide } from "./Strategy.js";
 import { startMarketFeed } from "./MarketFeed.js";
+import { createMarketScanner } from "./MarketScanner.js";
 import {
   createPaperTrader,
   buy,
@@ -11,6 +12,7 @@ import {
 import { log, logError } from "./logger.js";
 
 const state = createPaperTrader(config.startBalance);
+const scanner = createMarketScanner();
 let previousPrice = null;
 
 function showStatus(price, action) {
@@ -52,6 +54,7 @@ async function start() {
   log(`Asset: ${config.asset}`);
   log(`Starting balance: $${config.startBalance}`);
   log("Market feed: Coinbase WebSocket");
+  log("Market scanner: multi-coin fast-move detection");
   log("================================");
 
   // CI/smoke-test mode keeps one deterministic REST tick.
@@ -61,14 +64,26 @@ async function start() {
     return;
   }
 
-  // Live market observation: subscribe to multiple liquid coins at once.
   startMarketFeed({
     onTicker: ticker => {
+      const scan = scanner.update(ticker);
+
       log(
         `TICKER ${ticker.productId} | $${ticker.price.toFixed(6)} | ` +
         `24h ${ticker.change24hPct.toFixed(2)}% | ` +
         `bid ${ticker.bid.toFixed(6)} | ask ${ticker.ask.toFixed(6)}`
       );
+
+      if (scan.signal === "MOMENTUM_UP" || scan.signal === "MOMENTUM_DOWN") {
+        const spread = scan.spreadPct === null
+          ? "n/a"
+          : `${scan.spreadPct.toFixed(3)}%`;
+
+        log(
+          `SCAN ${scan.signal} ${scan.productId} | ` +
+          `move ${scan.movePct.toFixed(3)}% | spread ${spread}`
+        );
+      }
     },
     onError: error => logError(error)
   });
