@@ -11,6 +11,7 @@ import {
   sell,
   getEquity
 } from "./Papertrader.js";
+import { createDashboardServer } from "./DashboardServer.js";
 import { log, logError } from "./logger.js";
 
 const state = createPaperTrader(config.startBalance);
@@ -23,6 +24,13 @@ function dailyPnlPct(price) {
   const equity = getEquity(state, price);
   return ((equity - startingEquity) / startingEquity) * 100;
 }
+
+const dashboard = createDashboardServer({
+  state,
+  config,
+  getEquity,
+  getDailyPnlPct: price => dailyPnlPct(price)
+});
 
 function riskCheck(action, price) {
   const equity = getEquity(state, price);
@@ -56,19 +64,34 @@ async function tick() {
     sellRisePct: config.sellRisePct
   });
 
-  if (action === "BUY" || action === "SELL") {
-    const check = riskCheck(action, price);
+  let riskResult = null;
 
-    if (!check.allowed) {
-      log(`RISK BLOCK ${action} ${check.reason} | net edge: ${Number.isFinite(check.netEdgePct) ? check.netEdgePct.toFixed(2) : "n/a"}%`);
-    } else if (action === "BUY" && buy(state, price, check.maxTradeUsd)) {
-      log(`PAPER BUY ${config.asset} at $${price.toFixed(2)} | size $${check.maxTradeUsd.toFixed(2)}`);
+  if (action === "BUY" || action === "SELL") {
+    riskResult = riskCheck(action, price);
+
+    if (!riskResult.allowed) {
+      log(`RISK BLOCK ${action} ${riskResult.reason} | net edge: ${Number.isFinite(riskResult.netEdgePct) ? riskResult.netEdgePct.toFixed(2) : "n/a"}%`);
+    } else if (action === "BUY" && buy(state, price, riskResult.maxTradeUsd)) {
+      log(`PAPER BUY ${config.asset} at $${price.toFixed(2)} | size $${riskResult.maxTradeUsd.toFixed(2)}`);
     } else if (action === "SELL" && sell(state, price)) {
       log(`PAPER SELL ${config.asset} at $${price.toFixed(2)}`);
     }
   }
 
   showStatus(price, action);
+  dashboard.update({
+    ticker: {
+      productId: `${config.asset}-USD`,
+      price,
+      bid: null,
+      ask: null,
+      volume24h: null,
+      change24hPct: 0,
+      timestamp: new Date().toISOString()
+    },
+    action,
+    risk: riskResult
+  });
   previousPrice = price;
 }
 
@@ -86,6 +109,7 @@ async function start() {
   log("Market scanner: multi-coin fast-move detection");
   log("Signal engine: spread + liquidity + movement filter");
   log("Risk engine: trade-size + daily-loss + net-edge guard");
+  log("Dashboard: live paper equity + trades + activity");
   log("================================");
 
   if (process.env.RUN_ONCE === "1") {
@@ -93,6 +117,8 @@ async function start() {
     log("RUN_ONCE completed successfully");
     return;
   }
+
+  dashboard.start();
 
   startMarketFeed({
     onTicker: ticker => {
@@ -102,6 +128,8 @@ async function start() {
         spreadPct: scan.spreadPct,
         volume24h: scan.volume24h
       });
+
+      dashboard.update({ ticker, signal, scan });
 
       log(
         `TICKER ${ticker.productId} | $${ticker.price.toFixed(6)} | ` +
@@ -127,7 +155,10 @@ async function start() {
         );
       }
     },
-    onError: error => logError(error)
+    onError: error => {
+      dashboard.pushActivity(`Market feed error: ${error.message}`, "error");
+      logError(error);
+    }
   });
 
   await tick();
@@ -136,6 +167,7 @@ async function start() {
     try {
       await tick();
     } catch (error) {
+      dashboard.pushActivity(`Tick error: ${error.message}`, "error");
       logError(error);
     }
   }, config.pollSeconds * 1000);
