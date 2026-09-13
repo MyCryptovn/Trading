@@ -1,6 +1,7 @@
 import { config } from "./config.js";
 import { getPrice } from "./maket.js";
 import { decide } from "./Strategy.js";
+import { startMarketFeed } from "./MarketFeed.js";
 import {
   createPaperTrader,
   buy,
@@ -46,20 +47,34 @@ async function start() {
   }
 
   log("================================");
-  log("DEX BOT - FREE PAPER MODE");
+  log("DEX BOT - REAL-TIME PAPER ENGINE");
   log("REAL MONEY TRADING: DISABLED");
   log(`Asset: ${config.asset}`);
   log(`Starting balance: $${config.startBalance}`);
-  log(`Polling: every ${config.pollSeconds}s`);
+  log("Market feed: Coinbase WebSocket");
   log("================================");
 
-  await tick();
-
-  // CI/smoke-test mode: run exactly one successful tick and exit.
+  // CI/smoke-test mode keeps one deterministic REST tick.
   if (process.env.RUN_ONCE === "1") {
+    await tick();
     log("RUN_ONCE completed successfully");
     return;
   }
+
+  // Live market observation: subscribe to multiple liquid coins at once.
+  startMarketFeed({
+    onTicker: ticker => {
+      log(
+        `TICKER ${ticker.productId} | $${ticker.price.toFixed(6)} | ` +
+        `24h ${ticker.change24hPct.toFixed(2)}% | ` +
+        `bid ${ticker.bid.toFixed(6)} | ask ${ticker.ask.toFixed(6)}`
+      );
+    },
+    onError: error => logError(error)
+  });
+
+  // Keep the existing paper strategy alive for the configured asset.
+  await tick();
 
   setInterval(async () => {
     try {
@@ -70,7 +85,7 @@ async function start() {
   }, config.pollSeconds * 1000);
 }
 
-start().catch((error) => {
+start().catch(error => {
   logError(error);
   process.exit(1);
 });
