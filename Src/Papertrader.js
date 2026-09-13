@@ -10,15 +10,19 @@ export function createPaperTrader(startUsd, costs = {}) {
   };
 }
 
-export function buy(state, price) {
+export function buy(state, price, maxUsd = state.usd) {
   if (state.usd <= 0 || !Number.isFinite(price) || price <= 0) {
     return false;
   }
 
+  const tradeUsd = Math.min(state.usd, Number(maxUsd));
+  if (!Number.isFinite(tradeUsd) || tradeUsd <= 0) {
+    return false;
+  }
+
   const executionPrice = state.costs.buyPrice(price);
-  const grossUsd = state.usd;
-  const feeUsd = state.costs.fee(grossUsd);
-  const netUsd = grossUsd - feeUsd;
+  const feeUsd = state.costs.fee(tradeUsd);
+  const netUsd = tradeUsd - feeUsd;
   const amount = netUsd / executionPrice;
 
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -27,13 +31,14 @@ export function buy(state, price) {
 
   state.asset += amount;
   state.entryPrice = executionPrice;
-  state.usd = 0;
+  state.usd -= tradeUsd;
 
   state.trades.push({
     side: "BUY",
     quotedPrice: price,
     executionPrice,
     amount,
+    tradeUsd,
     feeUsd,
     time: new Date().toISOString()
   });
