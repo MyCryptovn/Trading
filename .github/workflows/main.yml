@@ -27,7 +27,7 @@ jobs:
 
       - name: Start Paper Bot
         run: |
-          timeout 90s npm start || true
+          timeout 90s npm start
 
       - name: Test completed
         run: echo "Paper bot test completed successfully"
