@@ -20,7 +20,9 @@ const scanner = createMarketScanner();
 const risk = createRiskEngine();
 const dexFlow = createDexFlowMonitor({
   network: config.dexNetwork,
-  poolAddress: config.dexPoolAddress
+  poolAddress: config.dexPoolAddress,
+  asset: config.asset,
+  dexAsset: config.dexAsset
 });
 const startingEquity = config.startBalance;
 let previousPrice = null;
@@ -151,6 +153,9 @@ async function start() {
   log("Market scanner: multi-coin fast-move detection");
   log("Signal engine: spread + liquidity + movement filter");
   log(`DEX flow monitor: ${dexFlow.enabled ? "ENABLED" : "DISABLED"}`);
+  if (config.dexNetwork && config.dexPoolAddress && !dexFlow.enabled) {
+    log("DEX flow monitor: HOLD until DEX_ASSET matches ASSET");
+  }
   log("Risk engine: trade-size + daily-loss + net-edge guard");
   log("Dashboard: live paper equity + trades + activity");
   log("================================");
