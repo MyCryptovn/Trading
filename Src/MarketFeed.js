@@ -50,13 +50,27 @@ export function startMarketFeed({
         for (const event of message.events || []) {
           for (const ticker of event.tickers || []) {
             const price = Number(ticker.price);
-            if (!Number.isFinite(price)) continue;
+            const bid = Number(ticker.best_bid);
+            const ask = Number(ticker.best_ask);
+
+            if (!Number.isFinite(price) || price <= 0) continue;
+
+            const hasValidQuote =
+              Number.isFinite(bid) &&
+              Number.isFinite(ask) &&
+              bid > 0 &&
+              ask >= bid;
+
+            const spreadPct = hasValidQuote
+              ? ((ask - bid) / price) * 100
+              : null;
 
             onTicker?.({
               productId: ticker.product_id,
               price,
-              bid: Number(ticker.best_bid),
-              ask: Number(ticker.best_ask),
+              bid,
+              ask,
+              spreadPct,
               volume24h: Number(ticker.volume_24_h),
               change24hPct: Number(ticker.price_percent_chg_24_h),
               timestamp: new Date().toISOString()
