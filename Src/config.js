@@ -67,6 +67,31 @@ export const config = {
     numberEnv("STATISTICAL_ROUND_TRIP_COST_PCT", 0.80)
   ),
 
+  pipelineTimeoutMs: Math.max(
+    1_000,
+    numberEnv("PIPELINE_TIMEOUT_MS", 15_000)
+  ),
+
+  pipelineRetries: Math.min(
+    5,
+    Math.max(0, Math.floor(numberEnv("PIPELINE_RETRIES", 2)))
+  ),
+
+  pipelineRetryDelayMs: Math.max(
+    100,
+    numberEnv("PIPELINE_RETRY_DELAY_MS", 750)
+  ),
+
+  pipelineCircuitFailureThreshold: Math.max(
+    1,
+    Math.floor(numberEnv("PIPELINE_CIRCUIT_FAILURE_THRESHOLD", 3))
+  ),
+
+  pipelineCircuitCooldownMs: Math.max(
+    5_000,
+    numberEnv("PIPELINE_CIRCUIT_COOLDOWN_MS", 30_000)
+  ),
+
   dexNetwork: process.env.DEX_NETWORK || "",
   dexPoolAddress: process.env.DEX_POOL_ADDRESS || "",
   dexAsset: process.env.DEX_ASSET || ""
