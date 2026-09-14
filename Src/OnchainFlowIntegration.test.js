@@ -33,7 +33,7 @@ const integration = createOnchainFlowIntegration({ adapter });
 const result = await integration.evaluate({ pair: "TEST/USDC" });
 
 assert.equal(result.ok, true);
-assert.equal(result.action, "FLOW_UP");
+assert.equal(result.action, "BUY");
 assert.ok(result.confidence >= 60);
 assert.equal(result.snapshot.data.chain, "ethereum");
 assert.equal(result.flow.imbalancePct > 0, true);
