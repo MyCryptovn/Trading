@@ -51,6 +51,8 @@ jobs:
           test -f Src/FastCandidateScorer.test.js
           test -f Src/FastDiscoveryEngine.js
           test -f Src/FastDiscoveryEngine.test.js
+          test -f Src/StatisticalEdgeEngine.js
+          test -f Src/StatisticalEdgeEngine.test.js
           test -f Src/DashboardServer.js
           test -f Src/DashboardServer.test.js
           test -f public/index.html
@@ -82,6 +84,8 @@ jobs:
           node --check Src/FastCandidateScorer.test.js
           node --check Src/FastDiscoveryEngine.js
           node --check Src/FastDiscoveryEngine.test.js
+          node --check Src/StatisticalEdgeEngine.js
+          node --check Src/StatisticalEdgeEngine.test.js
           node --check Src/MarketFeed.js
           node --check Src/MarketScanner.js
           node --check Src/SignalEngine.js
@@ -109,6 +113,9 @@ jobs:
 
       - name: Fast Discovery Engine Unit Test
         run: node Src/FastDiscoveryEngine.test.js
+
+      - name: Statistical Edge Engine Unit Test
+        run: node Src/StatisticalEdgeEngine.test.js
 
       - name: Dashboard Smoke Test
         run: node Src/DashboardServer.test.js
