@@ -5,6 +5,7 @@ import { startMarketFeed } from "./MarketFeed.js";
 import { createMarketScanner } from "./MarketScanner.js";
 import { evaluateSignal } from "./SignalEngine.js";
 import { createRiskEngine } from "./RiskEngine.js";
+import { createDexFlowMonitor } from "./DexFlowMonitor.js";
 import {
   createPaperTrader,
   buy,
@@ -17,8 +18,13 @@ import { log, logError } from "./logger.js";
 const state = createPaperTrader(config.startBalance);
 const scanner = createMarketScanner();
 const risk = createRiskEngine();
+const dexFlow = createDexFlowMonitor({
+  network: config.dexNetwork,
+  poolAddress: config.dexPoolAddress
+});
 const startingEquity = config.startBalance;
 let previousPrice = null;
+let latestDexFlow = null;
 
 function dailyPnlPct(price) {
   const equity = getEquity(state, price);
@@ -53,8 +59,43 @@ function showStatus(price, action) {
   log(`${config.asset} | $${price.toFixed(2)} | ${action} | Paper equity: $${equity.toFixed(2)} | PnL: ${dailyPnlPct(price).toFixed(2)}%`);
 }
 
+async function refreshDexFlow() {
+  if (!dexFlow.enabled) {
+    latestDexFlow = null;
+    return null;
+  }
+
+  const result = await dexFlow.evaluate();
+  latestDexFlow = result;
+
+  if (!result.ok) {
+    dashboard.pushActivity(`DEX flow HOLD: ${result.reason}`, "risk");
+    log(`DEX FLOW HOLD ${result.reason}`);
+    return result;
+  }
+
+  log(`DEX FLOW ${result.action} | confidence ${result.confidence}% | ${result.reason}`);
+  return result;
+}
+
+function signalCapitalFlow() {
+  if (!dexFlow.enabled) {
+    return null;
+  }
+
+  if (!latestDexFlow?.ok || !latestDexFlow.flow) {
+    return {
+      action: "HOLD",
+      confidence: 0
+    };
+  }
+
+  return latestDexFlow.flow;
+}
+
 async function tick() {
   const price = await getPrice(config.asset);
+  await refreshDexFlow();
 
   const action = decide({
     price,
@@ -90,7 +131,8 @@ async function tick() {
       timestamp: new Date().toISOString()
     },
     action,
-    risk: riskResult
+    risk: riskResult,
+    dexFlow: latestDexFlow
   });
   previousPrice = price;
 }
@@ -108,6 +150,7 @@ async function start() {
   log("Market feed: Coinbase WebSocket");
   log("Market scanner: multi-coin fast-move detection");
   log("Signal engine: spread + liquidity + movement filter");
+  log(`DEX flow monitor: ${dexFlow.enabled ? "ENABLED" : "DISABLED"}`);
   log("Risk engine: trade-size + daily-loss + net-edge guard");
   log("Dashboard: live paper equity + trades + activity");
   log("================================");
@@ -126,10 +169,11 @@ async function start() {
       const signal = evaluateSignal({
         movePct: scan.movePct,
         spreadPct: scan.spreadPct,
-        volume24h: scan.volume24h
+        volume24h: scan.volume24h,
+        capitalFlow: signalCapitalFlow()
       });
 
-      dashboard.update({ ticker, signal, scan });
+      dashboard.update({ ticker, signal, scan, dexFlow: latestDexFlow });
 
       log(
         `TICKER ${ticker.productId} | $${ticker.price.toFixed(6)} | ` +
