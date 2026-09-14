@@ -7,11 +7,34 @@ const disabledResult = await disabled.evaluate();
 assert.equal(disabledResult.action, "HOLD");
 assert.equal(disabledResult.reason, "DEX_FLOW_NOT_CONFIGURED");
 
+const unbound = createDexFlowMonitor({
+  network: "ethereum",
+  poolAddress: "0xPOOL",
+  asset: "BTC",
+  dexAsset: "ETH"
+});
+assert.equal(unbound.enabled, false);
+const unboundResult = await unbound.evaluate();
+assert.equal(unboundResult.action, "HOLD");
+assert.equal(unboundResult.reason, "DEX_FLOW_ASSET_NOT_BOUND");
+
+const missingBinding = createDexFlowMonitor({
+  network: "ethereum",
+  poolAddress: "0xPOOL",
+  asset: "BTC"
+});
+assert.equal(missingBinding.enabled, false);
+const missingBindingResult = await missingBinding.evaluate();
+assert.equal(missingBindingResult.action, "HOLD");
+assert.equal(missingBindingResult.reason, "DEX_FLOW_ASSET_NOT_BOUND");
+
 let now = 1000;
 let calls = 0;
 const monitor = createDexFlowMonitor({
   network: "ethereum",
   poolAddress: "0xPOOL",
+  asset: "BTC",
+  dexAsset: "btc",
   refreshMs: 60000,
   clock: () => now,
   integration: {
@@ -46,6 +69,8 @@ assert.equal(calls, 2);
 const failing = createDexFlowMonitor({
   network: "ethereum",
   poolAddress: "0xPOOL",
+  asset: "BTC",
+  dexAsset: "BTC",
   integration: {
     async evaluate() {
       throw new Error("fixture failure");
