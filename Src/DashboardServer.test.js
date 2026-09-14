@@ -22,17 +22,26 @@ const dashboard = createDashboardServer({
 
 const server = dashboard.start({ port: 0, host: "127.0.0.1" });
 
+await new Promise((resolve, reject) => {
+  if (server.listening) {
+    resolve();
+    return;
+  }
+
+  server.once("listening", resolve);
+  server.once("error", reject);
+});
+
 function request(path) {
   return new Promise((resolve, reject) => {
-    server.once("listening", () => {
-      const { port } = server.address();
-      http.get(`http://127.0.0.1:${port}${path}`, response => {
-        let body = "";
-        response.setEncoding("utf8");
-        response.on("data", chunk => { body += chunk; });
-        response.on("end", () => resolve({ statusCode: response.statusCode, body }));
-      }).on("error", reject);
+    const { port } = server.address();
+    const req = http.get(`http://127.0.0.1:${port}${path}`, response => {
+      let body = "";
+      response.setEncoding("utf8");
+      response.on("data", chunk => { body += chunk; });
+      response.on("end", () => resolve({ statusCode: response.statusCode, body }));
     });
+    req.on("error", reject);
   });
 }
 
