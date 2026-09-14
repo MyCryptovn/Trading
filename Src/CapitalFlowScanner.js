@@ -96,10 +96,10 @@ export function createCapitalFlowScanner(options = {}) {
     } else if (confidence < limits.minConfidence) {
       reasons.push("FLOW_CONFIDENCE_TOO_LOW");
     } else if (imbalance >= limits.minImbalancePct) {
-      action = "FLOW_UP";
+      action = "BUY";
       reasons.push("BUY_FLOW_DOMINANT");
     } else if (imbalance <= -limits.minImbalancePct) {
-      action = "FLOW_DOWN";
+      action = "SELL";
       reasons.push("SELL_FLOW_DOMINANT");
     } else {
       reasons.push("FLOW_BALANCED");
