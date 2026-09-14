@@ -76,12 +76,21 @@ export function decideTrade(input = {}, options = {}) {
     return { action: "HOLD", mode: "NONE", reasons };
   }
 
-  const opportunity =
-    score >= cfg.opportunityMinScore &&
-    safetyScore >= cfg.opportunityMinSafetyScore &&
-    netEdgePct >= cfg.opportunityMinNetEdgePct &&
-    flowConfidence >= cfg.opportunityMinFlowConfidence &&
-    input.opportunity === true;
+  // An explicitly marked hot opportunity must satisfy the stronger opportunity
+  // gates. It may not silently fall back to a weaker STANDARD BUY.
+  if (input.opportunity === true) {
+    const opportunityReasons = [];
+    if (score < cfg.opportunityMinScore) opportunityReasons.push("OPPORTUNITY_SCORE_TOO_LOW");
+    if (safetyScore < cfg.opportunityMinSafetyScore) opportunityReasons.push("OPPORTUNITY_SAFETY_TOO_LOW");
+    if (netEdgePct < cfg.opportunityMinNetEdgePct) opportunityReasons.push("OPPORTUNITY_NET_EDGE_TOO_LOW");
+    if (flowConfidence < cfg.opportunityMinFlowConfidence) opportunityReasons.push("OPPORTUNITY_FLOW_CONFIDENCE_TOO_LOW");
+
+    if (opportunityReasons.length) {
+      return { action: "HOLD", mode: "NONE", reasons: opportunityReasons };
+    }
+  }
+
+  const opportunity = input.opportunity === true;
 
   return {
     action: "BUY",
