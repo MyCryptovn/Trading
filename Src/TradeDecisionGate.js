@@ -14,7 +14,7 @@ const DEFAULTS = {
 };
 
 function finite(value) {
-  return Number.isFinite(Number(value));
+  return value !== null && value !== undefined && Number.isFinite(Number(value));
 }
 
 export function decideTrade(input = {}, options = {}) {
@@ -63,6 +63,11 @@ export function decideTrade(input = {}, options = {}) {
     }
   }
 
+  // BUY is fail-closed: safety and empirical statistical evidence must be
+  // explicitly approved. A score alone can never authorize a trade.
+  if (input.safetyApproved !== true) reasons.push("SAFETY_NOT_EXPLICITLY_APPROVED");
+  if (input.statisticalEdgeConfirmed !== true) reasons.push("STATISTICAL_EDGE_NOT_CONFIRMED");
+  if (String(input.statisticalDirection || "NONE").toUpperCase() !== "UP") reasons.push("STATISTICAL_DIRECTION_NOT_UP");
   if (!finite(score) || score < cfg.minScore) reasons.push("SCORE_BELOW_READY");
   if (!finite(safetyScore) || safetyScore < cfg.minSafetyScore) reasons.push("SAFETY_GATE_FAILED_OR_UNKNOWN");
   if (!finite(spreadPct) || spreadPct < 0 || spreadPct > cfg.maxSpreadPct) reasons.push("SPREAD_TOO_WIDE_OR_UNKNOWN");
@@ -105,6 +110,8 @@ export function rankOpportunityCandidates(candidates = [], options = {}) {
 
   return candidates
     .filter((c) => c && c.opportunity === true)
+    .filter((c) => c.safetyApproved === true && c.statisticalEdgeConfirmed === true)
+    .filter((c) => String(c.statisticalDirection || "NONE").toUpperCase() === "UP")
     .filter((c) => finite(c.score) && Number(c.score) >= cfg.opportunityMinScore)
     .filter((c) => finite(c.safetyScore) && Number(c.safetyScore) >= cfg.opportunityMinSafetyScore)
     .filter((c) => finite(c.netEdgePct) && Number(c.netEdgePct) >= cfg.opportunityMinNetEdgePct)
