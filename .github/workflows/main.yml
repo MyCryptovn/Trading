@@ -57,6 +57,8 @@ jobs:
           test -f Src/StatisticalEdgeEngine.test.js
           test -f Src/DashboardServer.js
           test -f Src/DashboardServer.test.js
+          test -f Src/DataQualityGate.js
+          test -f Src/DataQualityGate.test.js
           test -f public/index.html
           test -f Src/MarketFeed.js
           test -f Src/MarketScanner.js
@@ -92,6 +94,8 @@ jobs:
           node --check Src/StatisticalJournal.test.js
           node --check Src/StatisticalEdgeEngine.js
           node --check Src/StatisticalEdgeEngine.test.js
+          node --check Src/DataQualityGate.js
+          node --check Src/DataQualityGate.test.js
           node --check Src/MarketFeed.js
           node --check Src/MarketScanner.js
           node --check Src/SignalEngine.js
@@ -128,6 +132,9 @@ jobs:
 
       - name: Statistical Edge Engine Unit Test
         run: node Src/StatisticalEdgeEngine.test.js
+
+      - name: Market Data Quality Gate Unit Test
+        run: node Src/DataQualityGate.test.js
 
       - name: Dashboard Smoke Test
         run: node Src/DashboardServer.test.js
