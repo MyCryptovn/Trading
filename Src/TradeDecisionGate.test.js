@@ -56,6 +56,24 @@ const exit = decideTrade({
 assert.equal(exit.action, "SELL");
 assert.equal(exit.mode, "EXIT");
 
+const exitLowFlowConfidence = decideTrade({
+  ...base,
+  hasPosition: true,
+  flowDirection: "UP",
+  flowConfidence: 59
+});
+assert.equal(exitLowFlowConfidence.action, "SELL");
+assert.equal(exitLowFlowConfidence.mode, "EXIT");
+
+const exitUnknownFlowConfidence = decideTrade({
+  ...base,
+  hasPosition: true,
+  flowDirection: "UP",
+  flowConfidence: "unknown"
+});
+assert.equal(exitUnknownFlowConfidence.action, "SELL");
+assert.equal(exitUnknownFlowConfidence.mode, "EXIT");
+
 const noShort = decideTrade({
   ...base,
   hasPosition: false,
