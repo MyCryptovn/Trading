@@ -56,8 +56,9 @@ function goodCandidate(overrides = {}) {
 
 {
   const result = scoreCandidate(goodCandidate());
-  assert.equal(result.action, "READY");
-  assert.ok(result.score >= 80);
+  assert.equal(result.action, "WATCH");
+  assert.ok(result.score >= 60);
+  assert.ok(result.score < 80);
   assert.equal(result.gates.safety, true);
   assert.equal(result.gates.liquidity, true);
   assert.equal(result.gates.freshness, true);
