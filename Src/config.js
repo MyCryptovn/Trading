@@ -34,5 +34,6 @@ export const config = {
   ),
 
   dexNetwork: process.env.DEX_NETWORK || "",
-  dexPoolAddress: process.env.DEX_POOL_ADDRESS || ""
+  dexPoolAddress: process.env.DEX_POOL_ADDRESS || "",
+  dexAsset: process.env.DEX_ASSET || ""
 };
