@@ -31,5 +31,8 @@ export const config = {
   sellRisePct: numberEnv(
     "SELL_RISE_PCT",
     3
-  )
+  ),
+
+  dexNetwork: process.env.DEX_NETWORK || "",
+  dexPoolAddress: process.env.DEX_POOL_ADDRESS || ""
 };
