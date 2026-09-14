@@ -30,8 +30,6 @@ jobs:
           test -f package.json
           test -f Src/index.js
           test -f Src/config.js
-          test -f Src/maket.js
-          test -f Src/Strategy.js
           test -f Src/Papertrader.js
           test -f Src/TradingCosts.js
           test -f Src/RiskEngine.js
@@ -53,6 +51,8 @@ jobs:
           test -f Src/FastDiscoveryEngine.test.js
           test -f Src/TradeDecisionGate.js
           test -f Src/TradeDecisionGate.test.js
+          test -f Src/StatisticalJournal.js
+          test -f Src/StatisticalJournal.test.js
           test -f Src/StatisticalEdgeEngine.js
           test -f Src/StatisticalEdgeEngine.test.js
           test -f Src/DashboardServer.js
@@ -88,6 +88,8 @@ jobs:
           node --check Src/FastDiscoveryEngine.test.js
           node --check Src/TradeDecisionGate.js
           node --check Src/TradeDecisionGate.test.js
+          node --check Src/StatisticalJournal.js
+          node --check Src/StatisticalJournal.test.js
           node --check Src/StatisticalEdgeEngine.js
           node --check Src/StatisticalEdgeEngine.test.js
           node --check Src/MarketFeed.js
@@ -121,6 +123,9 @@ jobs:
       - name: Trade Decision Gate Unit Test
         run: node Src/TradeDecisionGate.test.js
 
+      - name: Statistical Journal Unit Test
+        run: node Src/StatisticalJournal.test.js
+
       - name: Statistical Edge Engine Unit Test
         run: node Src/StatisticalEdgeEngine.test.js
 
@@ -133,8 +138,6 @@ jobs:
           BOT_MODE: paper
           ASSET: BTC
           START_BALANCE_USD: 1000
-          BUY_DROP_PCT: 2
-          SELL_RISE_PCT: 3
 
       - name: Test completed
         run: echo "Paper bot smoke test completed successfully"
