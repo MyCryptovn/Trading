@@ -18,7 +18,7 @@ const buyFlow = scanner.scan({
   washTradeRisk: 5
 });
 
-assert.equal(buyFlow.action, "FLOW_UP");
+assert.equal(buyFlow.action, "BUY");
 assert.ok(buyFlow.confidence >= 60);
 assert.ok(buyFlow.imbalancePct > 30);
 
@@ -37,7 +37,7 @@ const sellFlow = scanner.scan({
   washTradeRisk: 5
 });
 
-assert.equal(sellFlow.action, "FLOW_DOWN");
+assert.equal(sellFlow.action, "SELL");
 assert.ok(sellFlow.confidence >= 60);
 assert.ok(sellFlow.imbalancePct < -30);
 
