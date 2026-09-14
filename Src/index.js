@@ -9,7 +9,7 @@ import { decideTrade } from "./TradeDecisionGate.js";
 import { createStatisticalJournal } from "./StatisticalJournal.js";
 import { estimateStatisticalEdge, walkForwardValidate } from "./StatisticalEdgeEngine.js";
 import { createPipelineReliability } from "./PipelineReliability.js";
-import { actionToDirection, normalizeAction, flowToDirection } from "./SignalContract.js";
+import { actionToDirection, normalizeAction } from "./SignalContract.js";
 import {
   createPaperTrader,
   buy,
@@ -119,7 +119,7 @@ function buildStatisticalContext() {
 
 function buildTradeEvidence({ scan, signal, timestamp }) {
   const flow = signalCapitalFlow();
-  const flowDirection = flowToDirection(flow?.action);
+  const flowDirection = actionToDirection(flow?.action);
   const momentumDirection = actionToDirection(signal?.action);
 
   return {
