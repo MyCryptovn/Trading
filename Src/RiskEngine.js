@@ -20,9 +20,10 @@ export function createRiskEngine({
   function evaluate({
     action = "HOLD",
     equityUsd,
-    expectedMovePct = 0,
+    expectedMovePct = null,
     feePct = 0,
     slippagePct = 0,
+    netEdgePct = null,
     dailyPnlPct = 0
   } = {}) {
     if (action !== "BUY" && action !== "SELL") {
@@ -33,15 +34,26 @@ export function createRiskEngine({
       return { allowed: false, action: "HOLD", reason: "INVALID_EQUITY" };
     }
 
-    if (!Number.isFinite(expectedMovePct) || expectedMovePct <= 0) {
-      return { allowed: false, action: "HOLD", reason: "INVALID_EXPECTED_MOVE" };
+    let effectiveNetEdgePct;
+
+    if (Number.isFinite(netEdgePct)) {
+      effectiveNetEdgePct = netEdgePct;
+    } else {
+      if (!Number.isFinite(expectedMovePct) || expectedMovePct <= 0) {
+        return { allowed: false, action: "HOLD", reason: "INVALID_EXPECTED_MOVE" };
+      }
+
+      const costsPct = finitePct(feePct, 0) + finitePct(slippagePct, 0);
+      effectiveNetEdgePct = expectedMovePct - costsPct;
     }
 
-    const costsPct = finitePct(feePct, 0) + finitePct(slippagePct, 0);
-    const netEdgePct = expectedMovePct - costsPct;
-
-    if (netEdgePct < limits.minNetEdgePct) {
-      return { allowed: false, action: "HOLD", reason: "NET_EDGE_TOO_SMALL", netEdgePct };
+    if (!Number.isFinite(effectiveNetEdgePct) || effectiveNetEdgePct < limits.minNetEdgePct) {
+      return {
+        allowed: false,
+        action: "HOLD",
+        reason: "NET_EDGE_TOO_SMALL",
+        netEdgePct: effectiveNetEdgePct
+      };
     }
 
     if (!Number.isFinite(dailyPnlPct)) {
@@ -58,7 +70,7 @@ export function createRiskEngine({
       allowed: true,
       action,
       reason: "RISK_CHECK_PASSED",
-      netEdgePct,
+      netEdgePct: effectiveNetEdgePct,
       maxTradeUsd,
       maxTradePct: limits.maxTradePct
     };
