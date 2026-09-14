@@ -6,6 +6,8 @@ import { evaluateSignal } from "./SignalEngine.js";
 import { createRiskEngine } from "./RiskEngine.js";
 import { createDexFlowMonitor } from "./DexFlowMonitor.js";
 import { decideTrade } from "./TradeDecisionGate.js";
+import { createStatisticalJournal } from "./StatisticalJournal.js";
+import { estimateStatisticalEdge } from "./StatisticalEdgeEngine.js";
 import {
   createPaperTrader,
   buy,
@@ -18,6 +20,11 @@ import { log, logError } from "./logger.js";
 const state = createPaperTrader(config.startBalance);
 const scanner = createMarketScanner();
 const risk = createRiskEngine();
+const statisticalJournal = createStatisticalJournal({
+  horizonMs: config.statisticalHorizonMs,
+  maxSamples: config.statisticalMaxSamples,
+  storagePath: config.statisticalJournalPath
+});
 const dexFlow = createDexFlowMonitor({
   network: config.dexNetwork,
   poolAddress: config.dexPoolAddress,
@@ -27,6 +34,7 @@ const dexFlow = createDexFlowMonitor({
 const startingEquity = config.startBalance;
 let previousPrice = null;
 let latestDexFlow = null;
+let latestStatisticalEdge = null;
 
 function dailyPnlPct(price) {
   const equity = getEquity(state, price);
@@ -76,18 +84,28 @@ async function refreshDexFlow() {
 }
 
 function signalCapitalFlow() {
-  if (!dexFlow.enabled) {
-    return null;
-  }
-
+  if (!dexFlow.enabled) return null;
   if (!latestDexFlow?.ok || !latestDexFlow.flow) {
-    return {
-      action: "HOLD",
-      confidence: 0
-    };
+    return { action: "HOLD", confidence: 0 };
   }
-
   return latestDexFlow.flow;
+}
+
+function flowDirection() {
+  const flow = signalCapitalFlow();
+  if (flow?.action === "BUY") return "UP";
+  if (flow?.action === "SELL") return "DOWN";
+  return "UNKNOWN";
+}
+
+function buildStatisticalContext() {
+  const direction = flowDirection();
+  const momentum = previousPrice === null
+    ? "UNKNOWN"
+    : previousPrice < 0
+      ? "UNKNOWN"
+      : "UP";
+  return `${config.asset}|FLOW_${direction}|MOMENTUM_${momentum}`;
 }
 
 function buildTradeEvidence({ price, scan, signal, timestamp }) {
@@ -102,19 +120,18 @@ function buildTradeEvidence({ price, scan, signal, timestamp }) {
 
   const flow = signalCapitalFlow();
 
-  // Safety and empirical statistical evidence are intentionally unknown here
-  // until their dedicated candidate pipeline supplies real observations.
-  // Unknown evidence is rejected by TradeDecisionGate; it can never authorize BUY.
   return {
     timestamp,
     score: null,
     safetyScore: null,
     safetyApproved: false,
-    statisticalEdgeConfirmed: false,
-    statisticalDirection: "NONE",
-    statisticalExpectedValuePct: null,
+    statisticalEdgeConfirmed: latestStatisticalEdge?.eligible === true,
+    statisticalDirection: latestStatisticalEdge?.direction || "NONE",
+    statisticalExpectedValuePct: latestStatisticalEdge?.expectedValuePct ?? null,
+    statisticalSampleSize: latestStatisticalEdge?.sampleSize ?? 0,
+    statisticalLowerBound95: latestStatisticalEdge?.lowerBound95 ?? null,
     spreadPct: scan?.spreadPct ?? null,
-    netEdgePct: null,
+    netEdgePct: latestStatisticalEdge?.expectedValuePct ?? null,
     flowConfidence: Number.isFinite(flow?.confidence) ? flow.confidence : null,
     flowDirection: flow?.action === "BUY"
       ? "UP"
@@ -127,6 +144,34 @@ function buildTradeEvidence({ price, scan, signal, timestamp }) {
     opportunity: false,
     signalAction: signal?.action || "HOLD"
   };
+}
+
+async function updateStatistics(price, timestamp) {
+  const resolved = await statisticalJournal.resolve({ timestamp, price });
+  if (resolved.resolved) {
+    for (const sample of resolved.samples) {
+      log(`STAT SAMPLE RESOLVED ${sample.contextKey} | forward ${sample.forwardReturnPct.toFixed(4)}%`);
+    }
+  }
+
+  const contextKey = buildStatisticalContext();
+  await statisticalJournal.observe({ timestamp, price, contextKey });
+
+  latestStatisticalEdge = estimateStatisticalEdge(
+    statisticalJournal.getSamples(contextKey),
+    {
+      contextKey,
+      asOfMs: timestamp,
+      horizonMs: config.statisticalHorizonMs,
+      costPct: config.statisticalRoundTripCostPct,
+      minSamples: config.statisticalMinSamples,
+      minDirectionalProbability: config.statisticalMinDirectionalProbability,
+      minLowerBound95: config.statisticalMinLowerBound95,
+      minExpectedValuePct: config.statisticalMinExpectedValuePct
+    }
+  );
+
+  return latestStatisticalEdge;
 }
 
 async function tick() {
@@ -156,6 +201,8 @@ async function tick() {
     volume24h: scan.volume24h,
     capitalFlow: signalCapitalFlow()
   });
+
+  await updateStatistics(price, now);
 
   const evidence = buildTradeEvidence({
     price,
@@ -210,6 +257,8 @@ async function start() {
     throw new Error("This version only supports BOT_MODE=paper");
   }
 
+  await statisticalJournal.initialize();
+
   log("================================");
   log("DEX BOT - REAL-TIME PAPER ENGINE");
   log("REAL MONEY TRADING: DISABLED");
@@ -224,6 +273,9 @@ async function start() {
   }
   log("Trade decision: fail-closed TradeDecisionGate");
   log("BUY requires explicit token safety + empirical statistical edge");
+  log("Statistical journal: empirical forward outcomes only");
+  log(`Statistical horizon: ${config.statisticalHorizonMs / 60000} minutes`);
+  log(`Statistical storage: ${config.statisticalJournalPath || "memory-only"}`);
   log("Unsafe/unknown trading evidence: REJECTED");
   log("Risk engine: trade-size + daily-loss + net-edge guard");
   log("Dashboard: live paper equity + trades + activity");
