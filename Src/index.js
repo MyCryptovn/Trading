@@ -1,11 +1,11 @@
 import { config } from "./config.js";
 import { getPrice } from "./maket.js";
-import { decide } from "./Strategy.js";
 import { startMarketFeed } from "./MarketFeed.js";
 import { createMarketScanner } from "./MarketScanner.js";
 import { evaluateSignal } from "./SignalEngine.js";
 import { createRiskEngine } from "./RiskEngine.js";
 import { createDexFlowMonitor } from "./DexFlowMonitor.js";
+import { decideTrade } from "./TradeDecisionGate.js";
 import {
   createPaperTrader,
   buy,
@@ -40,18 +40,13 @@ const dashboard = createDashboardServer({
   getDailyPnlPct: price => dailyPnlPct(price)
 });
 
-function riskCheck(action, price) {
+function riskCheck(netEdgePct, price) {
   const equity = getEquity(state, price);
-  const expectedMovePct = action === "BUY"
-    ? config.buyDropPct
-    : config.sellRisePct;
 
   return risk.evaluate({
-    action,
+    action: "BUY",
     equityUsd: equity,
-    expectedMovePct,
-    feePct: state.costs.feeRate * 100,
-    slippagePct: state.costs.slippageRate * 100,
+    netEdgePct,
     dailyPnlPct: dailyPnlPct(price)
   });
 }
@@ -95,33 +90,100 @@ function signalCapitalFlow() {
   return latestDexFlow.flow;
 }
 
+function buildTradeEvidence({ price, scan, signal, timestamp }) {
+  const momentumDirection =
+    previousPrice === null
+      ? "UNKNOWN"
+      : price > previousPrice
+        ? "UP"
+        : price < previousPrice
+          ? "DOWN"
+          : "FLAT";
+
+  const flow = signalCapitalFlow();
+
+  // Safety and empirical statistical evidence are intentionally unknown here
+  // until their dedicated candidate pipeline supplies real observations.
+  // Unknown evidence is rejected by TradeDecisionGate; it can never authorize BUY.
+  return {
+    timestamp,
+    score: null,
+    safetyScore: null,
+    safetyApproved: false,
+    statisticalEdgeConfirmed: false,
+    statisticalDirection: "NONE",
+    statisticalExpectedValuePct: null,
+    spreadPct: scan?.spreadPct ?? null,
+    netEdgePct: null,
+    flowConfidence: Number.isFinite(flow?.confidence) ? flow.confidence : null,
+    flowDirection: flow?.action === "BUY"
+      ? "UP"
+      : flow?.action === "SELL"
+        ? "DOWN"
+        : "UNKNOWN",
+    momentumDirection,
+    newsRisk: "NONE",
+    hasPosition: Boolean(state.asset && state.asset !== 0),
+    opportunity: false,
+    signalAction: signal?.action || "HOLD"
+  };
+}
+
 async function tick() {
   const price = await getPrice(config.asset);
   await refreshDexFlow();
 
-  const action = decide({
-    price,
-    previousPrice,
-    entryPrice: state.entryPrice,
-    buyDropPct: config.buyDropPct,
-    sellRisePct: config.sellRisePct
+  const now = Date.now();
+  const scan = previousPrice === null
+    ? {
+        signal: "WARMUP",
+        productId: `${config.asset}-USD`,
+        movePct: 0,
+        spreadPct: null,
+        volume24h: null
+      }
+    : {
+        signal: price > previousPrice ? "MOMENTUM_UP" : price < previousPrice ? "MOMENTUM_DOWN" : "HOLD",
+        productId: `${config.asset}-USD`,
+        movePct: ((price - previousPrice) / previousPrice) * 100,
+        spreadPct: null,
+        volume24h: null
+      };
+
+  const signal = evaluateSignal({
+    movePct: scan.movePct,
+    spreadPct: scan.spreadPct,
+    volume24h: scan.volume24h,
+    capitalFlow: signalCapitalFlow()
   });
 
+  const evidence = buildTradeEvidence({
+    price,
+    scan,
+    signal,
+    timestamp: now
+  });
+
+  const decision = decideTrade(evidence);
   let riskResult = null;
 
-  if (action === "BUY" || action === "SELL") {
-    riskResult = riskCheck(action, price);
+  if (decision.action === "BUY") {
+    riskResult = riskCheck(evidence.netEdgePct, price);
 
     if (!riskResult.allowed) {
-      log(`RISK BLOCK ${action} ${riskResult.reason} | net edge: ${Number.isFinite(riskResult.netEdgePct) ? riskResult.netEdgePct.toFixed(2) : "n/a"}%`);
-    } else if (action === "BUY" && buy(state, price, riskResult.maxTradeUsd)) {
+      log(`RISK BLOCK BUY ${riskResult.reason} | net edge: ${Number.isFinite(riskResult.netEdgePct) ? riskResult.netEdgePct.toFixed(2) : "n/a"}%`);
+    } else if (buy(state, price, riskResult.maxTradeUsd)) {
       log(`PAPER BUY ${config.asset} at $${price.toFixed(2)} | size $${riskResult.maxTradeUsd.toFixed(2)}`);
-    } else if (action === "SELL" && sell(state, price)) {
-      log(`PAPER SELL ${config.asset} at $${price.toFixed(2)}`);
     }
+  } else if (decision.action === "SELL") {
+    if (sell(state, price)) {
+      log(`PAPER SELL ${config.asset} at $${price.toFixed(2)} | ${decision.reasons.join(",")}`);
+    }
+  } else if (decision.reasons?.length) {
+    log(`TRADE GATE HOLD | ${decision.reasons.join(",")}`);
   }
 
-  showStatus(price, action);
+  showStatus(price, decision.action);
   dashboard.update({
     ticker: {
       productId: `${config.asset}-USD`,
@@ -132,8 +194,12 @@ async function tick() {
       change24hPct: 0,
       timestamp: new Date().toISOString()
     },
-    action,
+    action: decision.action,
+    decision,
+    evidence,
     risk: riskResult,
+    signal,
+    scan,
     dexFlow: latestDexFlow
   });
   previousPrice = price;
@@ -156,6 +222,9 @@ async function start() {
   if (config.dexNetwork && config.dexPoolAddress && !dexFlow.enabled) {
     log("DEX flow monitor: HOLD until DEX_ASSET matches ASSET");
   }
+  log("Trade decision: fail-closed TradeDecisionGate");
+  log("BUY requires explicit token safety + empirical statistical edge");
+  log("Unsafe/unknown trading evidence: REJECTED");
   log("Risk engine: trade-size + daily-loss + net-edge guard");
   log("Dashboard: live paper equity + trades + activity");
   log("================================");
@@ -170,15 +239,15 @@ async function start() {
 
   startMarketFeed({
     onTicker: ticker => {
-      const scan = scanner.update(ticker);
-      const signal = evaluateSignal({
-        movePct: scan.movePct,
-        spreadPct: scan.spreadPct,
-        volume24h: scan.volume24h,
+      const feedScan = scanner.update(ticker);
+      const feedSignal = evaluateSignal({
+        movePct: feedScan.movePct,
+        spreadPct: feedScan.spreadPct,
+        volume24h: feedScan.volume24h,
         capitalFlow: signalCapitalFlow()
       });
 
-      dashboard.update({ ticker, signal, scan, dexFlow: latestDexFlow });
+      dashboard.update({ ticker, signal: feedSignal, scan: feedScan, dexFlow: latestDexFlow });
 
       log(
         `TICKER ${ticker.productId} | $${ticker.price.toFixed(6)} | ` +
@@ -186,21 +255,21 @@ async function start() {
         `bid ${ticker.bid.toFixed(6)} | ask ${ticker.ask.toFixed(6)}`
       );
 
-      if (scan.signal === "MOMENTUM_UP" || scan.signal === "MOMENTUM_DOWN") {
-        const spread = scan.spreadPct === null
+      if (feedScan.signal === "MOMENTUM_UP" || feedScan.signal === "MOMENTUM_DOWN") {
+        const spread = feedScan.spreadPct === null
           ? "n/a"
-          : `${scan.spreadPct.toFixed(3)}%`;
+          : `${feedScan.spreadPct.toFixed(3)}%`;
 
         log(
-          `SCAN ${scan.signal} ${scan.productId} | ` +
-          `move ${scan.movePct.toFixed(3)}% | spread ${spread}`
+          `SCAN ${feedScan.signal} ${feedScan.productId} | ` +
+          `move ${feedScan.movePct.toFixed(3)}% | spread ${spread}`
         );
       }
 
-      if (signal.action !== "HOLD") {
+      if (feedSignal.action !== "HOLD") {
         log(
-          `SIGNAL ${signal.action} ${signal.reason} ${ticker.productId} | ` +
-          `move ${scan.movePct.toFixed(3)}%`
+          `SIGNAL ${feedSignal.action} ${feedSignal.reason} ${ticker.productId} | ` +
+          `move ${feedScan.movePct.toFixed(3)}%`
         );
       }
     },
