@@ -2,6 +2,7 @@ import { config } from "./config.js";
 import { getPrice } from "./maket.js";
 import { startMarketFeed } from "./MarketFeed.js";
 import { createMarketScanner } from "./MarketScanner.js";
+import { createMarketDataQualityGate } from "./DataQualityGate.js";
 import { evaluateSignal } from "./SignalEngine.js";
 import { createRiskEngine } from "./RiskEngine.js";
 import { createDexFlowMonitor } from "./DexFlowMonitor.js";
@@ -21,6 +22,7 @@ import { log, logError } from "./logger.js";
 
 const state = createPaperTrader(config.startBalance);
 const scanner = createMarketScanner();
+const dataQuality = createMarketDataQualityGate();
 const risk = createRiskEngine();
 const reliability = createPipelineReliability({
   timeoutMs: config.pipelineTimeoutMs,
@@ -200,21 +202,15 @@ async function tick() {
     const marketTicker = latestTicker?.productId === `${config.asset}-USD`
       ? latestTicker
       : null;
-    const scan = previousPrice === null
-      ? {
-          signal: "WARMUP",
-          productId: `${config.asset}-USD`,
-          movePct: 0,
-          spreadPct: marketTicker?.spreadPct ?? null,
-          volume24h: marketTicker?.volume24h ?? null
-        }
-      : {
-          signal: price > previousPrice ? "MOMENTUM_UP" : price < previousPrice ? "MOMENTUM_DOWN" : "HOLD",
-          productId: `${config.asset}-USD`,
-          movePct: ((price - previousPrice) / previousPrice) * 100,
-          spreadPct: marketTicker?.spreadPct ?? null,
-          volume24h: marketTicker?.volume24h ?? null
-        };
+    const scan = scanner.update({
+      productId: `${config.asset}-USD`,
+      price,
+      bid: marketTicker?.bid ?? null,
+      ask: marketTicker?.ask ?? null,
+      spreadPct: marketTicker?.spreadPct ?? null,
+      volume24h: marketTicker?.volume24h ?? null,
+      timestamp: new Date(now).toISOString()
+    });
 
     const signal = evaluateSignal({
       movePct: scan.movePct,
@@ -304,6 +300,7 @@ async function start() {
   log("Risk engine: trade-size + daily-loss + net-edge guard");
   log("Pipeline reliability: timeout + bounded retry + circuit breaker");
   log("Signal contract: BUY / SELL / HOLD / UNKNOWN");
+  log("Data quality gate: stale/invalid market evidence rejected");
   log("================================");
 
   if (process.env.RUN_ONCE === "1") {
@@ -316,6 +313,13 @@ async function start() {
 
   startMarketFeed({
     onTicker: ticker => {
+      const quality = dataQuality.validate(ticker);
+      if (!quality.ok) {
+        dashboard.pushActivity(`Market data rejected: ${quality.reason}`, "risk");
+        log(`MARKET DATA REJECTED ${ticker?.productId || "UNKNOWN"} | ${quality.reason}`);
+        return;
+      }
+
       latestTicker = ticker;
       const feedScan = scanner.update(ticker);
       const feedSignal = evaluateSignal({
