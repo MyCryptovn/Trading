@@ -38,18 +38,27 @@ export function decideTrade(input = {}, options = {}) {
 
   // An exit is allowed only for an existing position. This gate never opens a short.
   if (hasPosition) {
-    const deterioration =
+    const flowDeteriorated =
       flowDirection === "DOWN" ||
-      momentumDirection === "DOWN" ||
+      !finite(flowConfidence) ||
+      flowConfidence < cfg.exitFlowConfidence;
+    const momentumDeteriorated = momentumDirection === "DOWN";
+    const marketRiskDeteriorated =
       newsRisk === "HIGH" ||
       (finite(netEdgePct) && netEdgePct < 0) ||
       (finite(spreadPct) && spreadPct > cfg.maxSpreadPct);
 
-    if (deterioration) {
+    if (flowDeteriorated || momentumDeteriorated || marketRiskDeteriorated) {
+      const exitReasons = [];
+      if (flowDeteriorated) exitReasons.push("FLOW_DETERIORATED");
+      if (momentumDeteriorated) exitReasons.push("MOMENTUM_DETERIORATED");
+      if (newsRisk === "HIGH") exitReasons.push("HIGH_NEWS_RISK");
+      if (finite(netEdgePct) && netEdgePct < 0) exitReasons.push("NEGATIVE_NET_EDGE");
+      if (finite(spreadPct) && spreadPct > cfg.maxSpreadPct) exitReasons.push("SPREAD_TOO_WIDE");
       return {
         action: "SELL",
         mode: "EXIT",
-        reasons: ["POSITION_RISK_DETERIORATED"]
+        reasons: exitReasons.length ? exitReasons : ["POSITION_RISK_DETERIORATED"]
       };
     }
   }
