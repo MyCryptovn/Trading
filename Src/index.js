@@ -7,7 +7,7 @@ import { createRiskEngine } from "./RiskEngine.js";
 import { createDexFlowMonitor } from "./DexFlowMonitor.js";
 import { decideTrade } from "./TradeDecisionGate.js";
 import { createStatisticalJournal } from "./StatisticalJournal.js";
-import { estimateStatisticalEdge } from "./StatisticalEdgeEngine.js";
+import { estimateStatisticalEdge, walkForwardValidate } from "./StatisticalEdgeEngine.js";
 import {
   createPaperTrader,
   buy,
@@ -35,6 +35,7 @@ const startingEquity = config.startBalance;
 let previousPrice = null;
 let latestDexFlow = null;
 let latestStatisticalEdge = null;
+let latestWalkForward = null;
 
 function dailyPnlPct(price) {
   const equity = getEquity(state, price);
@@ -117,10 +118,12 @@ function buildTradeEvidence({ scan, signal, timestamp }) {
     safetyScore: null,
     safetyApproved: false,
     statisticalEdgeConfirmed: latestStatisticalEdge?.eligible === true,
+    statisticalOutOfSampleValidated: latestWalkForward?.eligible === true,
     statisticalDirection: latestStatisticalEdge?.direction || "NONE",
     statisticalExpectedValuePct: latestStatisticalEdge?.expectedValuePct ?? null,
     statisticalSampleSize: latestStatisticalEdge?.sampleSize ?? 0,
     statisticalLowerBound95: latestStatisticalEdge?.lowerBound95 ?? null,
+    statisticalWalkForwardAccuracy: latestWalkForward?.directionalAccuracy ?? null,
     spreadPct: scan?.spreadPct ?? null,
     netEdgePct: latestStatisticalEdge?.expectedValuePct ?? null,
     flowConfidence: Number.isFinite(flow?.confidence) ? flow.confidence : null,
@@ -137,6 +140,19 @@ function buildTradeEvidence({ scan, signal, timestamp }) {
   };
 }
 
+function statisticalOptions(contextKey, asOfMs) {
+  return {
+    contextKey,
+    asOfMs,
+    horizonMs: config.statisticalHorizonMs,
+    costPct: config.statisticalRoundTripCostPct,
+    minSamples: config.statisticalMinSamples,
+    minDirectionalProbability: config.statisticalMinDirectionalProbability,
+    minLowerBound95: config.statisticalMinLowerBound95,
+    minExpectedValuePct: config.statisticalMinExpectedValuePct
+  };
+}
+
 async function updateStatistics(price, timestamp) {
   const resolved = await statisticalJournal.resolve({ timestamp, price });
   if (resolved.resolved) {
@@ -148,21 +164,19 @@ async function updateStatistics(price, timestamp) {
   const contextKey = buildStatisticalContext();
   await statisticalJournal.observe({ timestamp, price, contextKey });
 
+  const samples = statisticalJournal.getSamples(contextKey);
   latestStatisticalEdge = estimateStatisticalEdge(
-    statisticalJournal.getSamples(contextKey),
-    {
-      contextKey,
-      asOfMs: timestamp,
-      horizonMs: config.statisticalHorizonMs,
-      costPct: config.statisticalRoundTripCostPct,
-      minSamples: config.statisticalMinSamples,
-      minDirectionalProbability: config.statisticalMinDirectionalProbability,
-      minLowerBound95: config.statisticalMinLowerBound95,
-      minExpectedValuePct: config.statisticalMinExpectedValuePct
-    }
+    samples,
+    statisticalOptions(contextKey, timestamp)
   );
 
-  return latestStatisticalEdge;
+  latestWalkForward = walkForwardValidate(samples, {
+    ...statisticalOptions(contextKey, timestamp),
+    trainMinSamples: config.statisticalMinSamples,
+    testWindow: config.statisticalTestWindow
+  });
+
+  return { edge: latestStatisticalEdge, walkForward: latestWalkForward };
 }
 
 async function tick() {
@@ -263,6 +277,7 @@ async function start() {
   }
   log("Trade decision: fail-closed TradeDecisionGate");
   log("BUY requires explicit token safety + empirical statistical edge");
+  log("Out-of-sample validation: REQUIRED before BUY");
   log("Statistical journal: empirical forward outcomes only");
   log(`Statistical horizon: ${config.statisticalHorizonMs / 60000} minutes`);
   log(`Statistical storage: ${config.statisticalJournalPath || "memory-only"}`);
