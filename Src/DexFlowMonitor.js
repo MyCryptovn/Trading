@@ -5,7 +5,9 @@ const DEFAULT_REFRESH_MS = 60000;
 
 /**
  * Optional read-only DEX flow monitor.
- * It is intentionally disabled unless a network and pool address are configured.
+ * It is intentionally disabled unless a network, pool address, and explicit
+ * asset binding are configured. This prevents flow from one pool being used
+ * accidentally as evidence for a different traded asset.
  * It never signs, submits, or executes transactions.
  * A short cache prevents unnecessary provider calls when the main bot polls faster
  * than the DEX data refresh interval.
@@ -13,6 +15,8 @@ const DEFAULT_REFRESH_MS = 60000;
 export function createDexFlowMonitor({
   network,
   poolAddress,
+  asset,
+  dexAsset,
   adapter,
   integration,
   refreshMs = DEFAULT_REFRESH_MS,
@@ -23,6 +27,15 @@ export function createDexFlowMonitor({
       enabled: false,
       async evaluate() {
         return { ok: false, enabled: false, action: "HOLD", reason: "DEX_FLOW_NOT_CONFIGURED" };
+      }
+    };
+  }
+
+  if (!asset || !dexAsset || asset.toUpperCase() !== dexAsset.toUpperCase()) {
+    return {
+      enabled: false,
+      async evaluate() {
+        return { ok: false, enabled: false, action: "HOLD", reason: "DEX_FLOW_ASSET_NOT_BOUND" };
       }
     };
   }
