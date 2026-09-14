@@ -36,7 +36,6 @@ export function decideTrade(input = {}, options = {}) {
     return { action: "HOLD", mode: "NONE", reasons: ["STALE_OR_INVALID_DATA"] };
   }
 
-  // An exit is allowed only for an existing position. This gate never opens a short.
   if (hasPosition) {
     const flowDeteriorated =
       flowDirection === "DOWN" ||
@@ -63,10 +62,11 @@ export function decideTrade(input = {}, options = {}) {
     }
   }
 
-  // BUY is fail-closed: safety and empirical statistical evidence must be
-  // explicitly approved. A score alone can never authorize a trade.
+  // BUY is fail-closed: safety, empirical statistical edge, and an explicit
+  // out-of-sample validation must all be present. A score alone can never buy.
   if (input.safetyApproved !== true) reasons.push("SAFETY_NOT_EXPLICITLY_APPROVED");
   if (input.statisticalEdgeConfirmed !== true) reasons.push("STATISTICAL_EDGE_NOT_CONFIRMED");
+  if (input.statisticalOutOfSampleValidated !== true) reasons.push("OUT_OF_SAMPLE_VALIDATION_NOT_CONFIRMED");
   if (String(input.statisticalDirection || "NONE").toUpperCase() !== "UP") reasons.push("STATISTICAL_DIRECTION_NOT_UP");
   if (!finite(score) || score < cfg.minScore) reasons.push("SCORE_BELOW_READY");
   if (!finite(safetyScore) || safetyScore < cfg.minSafetyScore) reasons.push("SAFETY_GATE_FAILED_OR_UNKNOWN");
@@ -81,8 +81,6 @@ export function decideTrade(input = {}, options = {}) {
     return { action: "HOLD", mode: "NONE", reasons };
   }
 
-  // An explicitly marked hot opportunity must satisfy the stronger opportunity
-  // gates. It may not silently fall back to a weaker STANDARD BUY.
   if (input.opportunity === true) {
     const opportunityReasons = [];
     if (score < cfg.opportunityMinScore) opportunityReasons.push("OPPORTUNITY_SCORE_TOO_LOW");
@@ -111,6 +109,7 @@ export function rankOpportunityCandidates(candidates = [], options = {}) {
   return candidates
     .filter((c) => c && c.opportunity === true)
     .filter((c) => c.safetyApproved === true && c.statisticalEdgeConfirmed === true)
+    .filter((c) => c.statisticalOutOfSampleValidated === true)
     .filter((c) => String(c.statisticalDirection || "NONE").toUpperCase() === "UP")
     .filter((c) => finite(c.score) && Number(c.score) >= cfg.opportunityMinScore)
     .filter((c) => finite(c.safetyScore) && Number(c.safetyScore) >= cfg.opportunityMinSafetyScore)
