@@ -1,0 +1,20 @@
+name: Trade Decision Gate Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: node --check Src/TradeDecisionGate.js
+      - run: node --check Src/TradeDecisionGate.test.js
+      - run: node Src/TradeDecisionGate.test.js
