@@ -8,6 +8,8 @@ import { createDexFlowMonitor } from "./DexFlowMonitor.js";
 import { decideTrade } from "./TradeDecisionGate.js";
 import { createStatisticalJournal } from "./StatisticalJournal.js";
 import { estimateStatisticalEdge, walkForwardValidate } from "./StatisticalEdgeEngine.js";
+import { createPipelineReliability } from "./PipelineReliability.js";
+import { actionToDirection, normalizeAction, flowToDirection } from "./SignalContract.js";
 import {
   createPaperTrader,
   buy,
@@ -20,6 +22,18 @@ import { log, logError } from "./logger.js";
 const state = createPaperTrader(config.startBalance);
 const scanner = createMarketScanner();
 const risk = createRiskEngine();
+const reliability = createPipelineReliability({
+  timeoutMs: config.pipelineTimeoutMs,
+  retries: config.pipelineRetries,
+  retryDelayMs: config.pipelineRetryDelayMs,
+  circuitFailureThreshold: config.pipelineCircuitFailureThreshold,
+  circuitCooldownMs: config.pipelineCircuitCooldownMs,
+  onEvent: event => {
+    if (["RETRY", "FAILED", "BLOCKED", "CIRCUIT_OPEN"].includes(event.type)) {
+      dashboard?.pushActivity?.(`${event.type} ${event.name}${event.errorCode ? `: ${event.errorCode}` : ""}`, "risk");
+    }
+  }
+});
 const statisticalJournal = createStatisticalJournal({
   horizonMs: config.statisticalHorizonMs,
   maxSamples: config.statisticalMaxSamples,
@@ -36,6 +50,8 @@ let previousPrice = null;
 let latestDexFlow = null;
 let latestStatisticalEdge = null;
 let latestWalkForward = null;
+let latestTicker = null;
+let tickInFlight = false;
 
 function dailyPnlPct(price) {
   const equity = getEquity(state, price);
@@ -70,7 +86,7 @@ async function refreshDexFlow() {
     return null;
   }
 
-  const result = await dexFlow.evaluate();
+  const result = await reliability.run("dex-flow", () => dexFlow.evaluate());
   latestDexFlow = result;
 
   if (!result.ok) {
@@ -79,7 +95,7 @@ async function refreshDexFlow() {
     return result;
   }
 
-  log(`DEX FLOW ${result.action} | confidence ${result.confidence}% | ${result.reason}`);
+  log(`DEX FLOW ${normalizeAction(result.action)} | confidence ${result.confidence}% | ${result.reason}`);
   return result;
 }
 
@@ -88,29 +104,23 @@ function signalCapitalFlow() {
   if (!latestDexFlow?.ok || !latestDexFlow.flow) {
     return { action: "HOLD", confidence: 0 };
   }
-  return latestDexFlow.flow;
+
+  return {
+    ...latestDexFlow.flow,
+    action: normalizeAction(latestDexFlow.flow.action)
+  };
 }
 
 function buildStatisticalContext() {
-  const direction = signalCapitalFlow()?.action === "BUY"
-    ? "UP"
-    : signalCapitalFlow()?.action === "SELL"
-      ? "DOWN"
-      : "UNKNOWN";
-  return `${config.asset}|FLOW_${direction}`;
+  const action = normalizeAction(signalCapitalFlow()?.action);
+  const direction = actionToDirection(action);
+  return `${config.asset}|${direction}`;
 }
 
 function buildTradeEvidence({ scan, signal, timestamp }) {
-  const momentumDirection =
-    previousPrice === null
-      ? "UNKNOWN"
-      : signal?.action === "BUY"
-        ? "UP"
-        : signal?.action === "SELL"
-          ? "DOWN"
-          : "UNKNOWN";
-
   const flow = signalCapitalFlow();
+  const flowDirection = flowToDirection(flow?.action);
+  const momentumDirection = actionToDirection(signal?.action);
 
   return {
     timestamp,
@@ -127,16 +137,12 @@ function buildTradeEvidence({ scan, signal, timestamp }) {
     spreadPct: scan?.spreadPct ?? null,
     netEdgePct: latestStatisticalEdge?.expectedValuePct ?? null,
     flowConfidence: Number.isFinite(flow?.confidence) ? flow.confidence : null,
-    flowDirection: flow?.action === "BUY"
-      ? "UP"
-      : flow?.action === "SELL"
-        ? "DOWN"
-        : "UNKNOWN",
+    flowDirection,
     momentumDirection,
     newsRisk: "NONE",
     hasPosition: Boolean(state.asset && state.asset !== 0),
     opportunity: false,
-    signalAction: signal?.action || "HOLD"
+    signalAction: normalizeAction(signal?.action)
   };
 }
 
@@ -180,80 +186,93 @@ async function updateStatistics(price, timestamp) {
 }
 
 async function tick() {
-  const price = await getPrice(config.asset);
-  await refreshDexFlow();
-
-  const now = Date.now();
-  const scan = previousPrice === null
-    ? {
-        signal: "WARMUP",
-        productId: `${config.asset}-USD`,
-        movePct: 0,
-        spreadPct: null,
-        volume24h: null
-      }
-    : {
-        signal: price > previousPrice ? "MOMENTUM_UP" : price < previousPrice ? "MOMENTUM_DOWN" : "HOLD",
-        productId: `${config.asset}-USD`,
-        movePct: ((price - previousPrice) / previousPrice) * 100,
-        spreadPct: null,
-        volume24h: null
-      };
-
-  const signal = evaluateSignal({
-    movePct: scan.movePct,
-    spreadPct: scan.spreadPct,
-    volume24h: scan.volume24h,
-    capitalFlow: signalCapitalFlow()
-  });
-
-  await updateStatistics(price, now);
-
-  const evidence = buildTradeEvidence({
-    scan,
-    signal,
-    timestamp: now
-  });
-
-  const decision = decideTrade(evidence);
-  let riskResult = null;
-
-  if (decision.action === "BUY") {
-    riskResult = riskCheck(evidence.netEdgePct, price);
-
-    if (!riskResult.allowed) {
-      log(`RISK BLOCK BUY ${riskResult.reason} | net edge: ${Number.isFinite(riskResult.netEdgePct) ? riskResult.netEdgePct.toFixed(2) : "n/a"}%`);
-    } else if (buy(state, price, riskResult.maxTradeUsd)) {
-      log(`PAPER BUY ${config.asset} at $${price.toFixed(2)} | size $${riskResult.maxTradeUsd.toFixed(2)}`);
-    }
-  } else if (decision.action === "SELL") {
-    if (sell(state, price)) {
-      log(`PAPER SELL ${config.asset} at $${price.toFixed(2)} | ${decision.reasons.join(",")}`);
-    }
-  } else if (decision.reasons?.length) {
-    log(`TRADE GATE HOLD | ${decision.reasons.join(",")}`);
+  if (tickInFlight) {
+    log("TICK SKIPPED: previous tick still running");
+    return;
   }
 
-  showStatus(price, decision.action);
-  dashboard.update({
-    ticker: {
-      productId: `${config.asset}-USD`,
-      price,
-      bid: null,
-      ask: null,
-      volume24h: null,
-      change24hPct: 0,
-      timestamp: new Date().toISOString()
-    },
-    action: decision.action,
-    decision,
-    evidence,
-    risk: riskResult,
-    signal,
-    scan,
-    dexFlow: latestDexFlow
-  });
-  previousPrice = price;
+  tickInFlight = true;
+  try {
+    const price = await reliability.run("market-price", () => getPrice(config.asset));
+    await refreshDexFlow();
+
+    const now = Date.now();
+    const marketTicker = latestTicker?.productId === `${config.asset}-USD`
+      ? latestTicker
+      : null;
+    const scan = previousPrice === null
+      ? {
+          signal: "WARMUP",
+          productId: `${config.asset}-USD`,
+          movePct: 0,
+          spreadPct: marketTicker?.spreadPct ?? null,
+          volume24h: marketTicker?.volume24h ?? null
+        }
+      : {
+          signal: price > previousPrice ? "MOMENTUM_UP" : price < previousPrice ? "MOMENTUM_DOWN" : "HOLD",
+          productId: `${config.asset}-USD`,
+          movePct: ((price - previousPrice) / previousPrice) * 100,
+          spreadPct: marketTicker?.spreadPct ?? null,
+          volume24h: marketTicker?.volume24h ?? null
+        };
+
+    const signal = evaluateSignal({
+      movePct: scan.movePct,
+      spreadPct: scan.spreadPct,
+      volume24h: scan.volume24h,
+      capitalFlow: signalCapitalFlow()
+    });
+
+    await updateStatistics(price, now);
+
+    const evidence = buildTradeEvidence({
+      scan,
+      signal,
+      timestamp: now
+    });
+
+    const decision = decideTrade(evidence);
+    let riskResult = null;
+
+    if (decision.action === "BUY") {
+      riskResult = riskCheck(evidence.netEdgePct, price);
+
+      if (!riskResult.allowed) {
+        log(`RISK BLOCK BUY ${riskResult.reason} | net edge: ${Number.isFinite(riskResult.netEdgePct) ? riskResult.netEdgePct.toFixed(2) : "n/a"}%`);
+      } else if (buy(state, price, riskResult.maxTradeUsd)) {
+        log(`PAPER BUY ${config.asset} at $${price.toFixed(2)} | size $${riskResult.maxTradeUsd.toFixed(2)}`);
+      }
+    } else if (decision.action === "SELL") {
+      if (sell(state, price)) {
+        log(`PAPER SELL ${config.asset} at $${price.toFixed(2)} | ${decision.reasons.join(",")}`);
+      }
+    } else if (decision.reasons?.length) {
+      log(`TRADE GATE HOLD | ${decision.reasons.join(",")}`);
+    }
+
+    showStatus(price, decision.action);
+    dashboard.update({
+      ticker: marketTicker || {
+        productId: `${config.asset}-USD`,
+        price,
+        bid: null,
+        ask: null,
+        volume24h: null,
+        change24hPct: 0,
+        timestamp: new Date().toISOString()
+      },
+      action: decision.action,
+      decision,
+      evidence,
+      risk: riskResult,
+      signal,
+      scan,
+      dexFlow: latestDexFlow
+    });
+    previousPrice = price;
+  } finally {
+    tickInFlight = false;
+  }
 }
 
 async function start() {
@@ -283,7 +302,8 @@ async function start() {
   log(`Statistical storage: ${config.statisticalJournalPath || "memory-only"}`);
   log("Unsafe/unknown trading evidence: REJECTED");
   log("Risk engine: trade-size + daily-loss + net-edge guard");
-  log("Dashboard: live paper equity + trades + activity");
+  log("Pipeline reliability: timeout + bounded retry + circuit breaker");
+  log("Signal contract: BUY / SELL / HOLD / UNKNOWN");
   log("================================");
 
   if (process.env.RUN_ONCE === "1") {
@@ -296,6 +316,7 @@ async function start() {
 
   startMarketFeed({
     onTicker: ticker => {
+      latestTicker = ticker;
       const feedScan = scanner.update(ticker);
       const feedSignal = evaluateSignal({
         movePct: feedScan.movePct,
