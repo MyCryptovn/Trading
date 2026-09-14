@@ -1,92 +1,104 @@
 # DEX Bot Free / Paper Trading
 
-Bot Node.js miễn phí dùng để theo dõi giá và mô phỏng giao dịch.
+Bot Node.js tập trung vào **Paper Trading, dữ liệu thực tế và kiểm soát rủi ro**.
 
 ## ⚠️ SAFETY
 
-Đây là PAPER TRADING ONLY.
+Đây là **PAPER TRADING ONLY**.
 
 Bot hiện tại:
 
-- Không có private key
-- Không kết nối ví để ký giao dịch
-- Không gửi transaction lên blockchain
-- Không giao dịch tiền thật
-- Không chuyển tiền
-- Không rút tiền
-- Không lưu seed phrase
+- Không có private key.
+- Không kết nối ví để ký giao dịch.
+- Không gửi transaction lên blockchain.
+- Không giao dịch tiền thật.
+- Không chuyển hoặc rút tiền.
+- Không lưu seed phrase.
+- Không có đường bật live execution tự động.
 
-## Chức năng
+## Kiến trúc quyết định
 
-Bot có thể:
+Luồng mục tiêu:
 
-1. Lấy giá BTC/USD.
-2. Theo dõi biến động giá.
-3. Tạo tín hiệu BUY/SELL/HOLD.
-4. Mô phỏng giao dịch.
-5. Tính giá trị portfolio giả lập.
-6. Chạy liên tục bằng Node.js.
-7. Ghi trạng thái ra console.
+```text
+REAL-TIME MARKET DATA
+        ↓
+FAST DISCOVERY
+        ↓
+TOKEN SAFETY / LIQUIDITY / FRESHNESS
+        ↓
+CAPITAL FLOW + MOMENTUM + COST
+        ↓
+EMPIRICAL STATISTICAL EDGE
+        ↓
+WALK-FORWARD / OUT-OF-SAMPLE CHECK
+        ↓
+TRADE DECISION GATE
+        ↓
+PAPERTRADER
+```
 
-## Cấu hình
+`TradeDecisionGate` là cơ quan duy nhất có quyền quyết định BUY / HOLD / EXIT.
 
-Copy:
+### Không dùng ngưỡng giá cố định để BUY/SELL
 
-.env.example
+Bot không dùng quy tắc kiểu “giảm X% thì BUY” hoặc “tăng Y% thì SELL” làm chiến lược giao dịch.
 
-thành:
+Thay vào đó, `StatisticalJournal` ghi các **forward outcomes đã quan sát thực tế**. `StatisticalEdgeEngine` dùng các mẫu này để đánh giá xác suất, khoảng tin cậy, expected value sau chi phí và kiểm tra walk-forward.
 
-.env
+Khi chưa đủ dữ liệu hoặc bằng chứng không đủ mạnh, hệ thống phải **HOLD**.
 
-Ví dụ:
+## Statistical Journal
 
-BOT_MODE=paper
-POLL_SECONDS=60
-START_BALANCE_USD=1000
-ASSET=BTC
-BUY_DROP_PCT=2
-SELL_RISE_PCT=3
+Journal có các nguyên tắc:
+
+- Không tạo dữ liệu giả.
+- Không ghi kết quả tương lai trước khi tương lai thực sự xảy ra.
+- Không tạo sample mới nếu cùng context vẫn còn sample đang chờ.
+- Dùng horizon rõ ràng, mặc định 15 phút.
+- Lưu append-only dạng JSONL để có lịch sử có thể kiểm tra.
+- Giới hạn số mẫu để tránh bộ nhớ tăng vô hạn.
+
+## Safety
+
+Coin/token chỉ được đưa vào luồng giao dịch khi dữ liệu an toàn cần thiết được xác nhận. Honeypot, sell blocked, thanh khoản không đạt, dữ liệu stale hoặc thông tin an toàn quan trọng chưa xác định đều không được coi là bằng chứng an toàn.
 
 ## Chạy
 
-Cài Node.js 20 hoặc mới hơn.
+Cài Node.js 20 hoặc mới hơn:
 
-Sau đó:
-
+```bash
+npm install
 npm start
+```
+
+Mặc định bot chạy PAPER mode.
 
 ## Kiểm tra
 
-Bot sẽ hiển thị dạng:
+```bash
+node Src/StatisticalJournal.test.js
+node Src/StatisticalEdgeEngine.test.js
+node Src/TradeDecisionGate.test.js
+npm test
+```
 
-BTC | $xxxxx.xx | HOLD | Paper equity: $1000.00
+CI cũng kiểm tra syntax, safety, flow, on-chain adapters, discovery, statistical journal, statistical edge, decision gate, dashboard và Paper Bot smoke test.
 
-Nếu đủ điều kiện:
+## Dashboard
 
-PAPER BUY BTC at $xxxxx.xx
+Dashboard Paper hiển thị equity, cash, position, trades, market data và activity. Trạng thái real-money execution luôn bị khóa trong phiên bản này.
 
-Sau đó khi đạt điều kiện bán:
+## Dữ liệu thống kê
 
-PAPER SELL BTC at $xxxxx.xx
+Mặc định journal được ghi vào:
 
-## GitHub
+```text
+data/statistical-journal.jsonl
+```
 
-Không commit:
+File này là dữ liệu quan sát của bot, không phải dữ liệu giả để làm đẹp kết quả.
 
-.env
-node_modules/
+## Quan trọng trước khi có live trading
 
-Private keys tuyệt đối không đưa vào GitHub.
-
-## Giai đoạn tiếp theo
-
-Sau khi PAPER BOT chạy ổn định:
-
-1. Thêm Telegram notification.
-2. Thêm nhiều coin.
-3. Thêm database/log persistence.
-4. Thêm health check.
-5. Thêm automatic restart.
-6. Deploy lên free-tier.
-7. Chạy demo 24/7.
-8. Chỉ sau khi kiểm thử đầy đủ mới nghiên cứu live DEX execution.
+Không chuyển sang tiền thật chỉ vì Paper Bot có một giai đoạn kết quả tốt. Cần đủ dữ liệu, kiểm tra out-of-sample/walk-forward, đánh giá drawdown, chi phí thực tế, độ ổn định theo nhiều thị trường và các cơ chế kill-switch/risk-control trước khi nghiên cứu execution thật.
