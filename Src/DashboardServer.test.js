@@ -10,29 +10,19 @@ const config = {
   startBalance: 1000
 };
 
-const dashboard = createDashboardServer({
-  state,
-  config,
-  getEquity,
-  getDailyPnlPct: price => {
-    const equity = getEquity(state, price);
-    return ((equity - config.startBalance) / config.startBalance) * 100;
-  }
-});
+function waitForListening(server) {
+  return new Promise((resolve, reject) => {
+    if (server.listening) {
+      resolve();
+      return;
+    }
 
-const server = dashboard.start({ port: 0, host: "127.0.0.1" });
+    server.once("listening", resolve);
+    server.once("error", reject);
+  });
+}
 
-await new Promise((resolve, reject) => {
-  if (server.listening) {
-    resolve();
-    return;
-  }
-
-  server.once("listening", resolve);
-  server.once("error", reject);
-});
-
-function request(path) {
+function request(server, path) {
   return new Promise((resolve, reject) => {
     const { port } = server.address();
     const req = http.get(`http://127.0.0.1:${port}${path}`, response => {
@@ -45,15 +35,28 @@ function request(path) {
   });
 }
 
-try {
-  const health = await request("/health");
+async function createAndCheckDashboard() {
+  const dashboard = createDashboardServer({
+    state,
+    config,
+    getEquity,
+    getDailyPnlPct: price => {
+      const equity = getEquity(state, price);
+      return ((equity - config.startBalance) / config.startBalance) * 100;
+    }
+  });
+
+  const server = dashboard.start({ port: 0, host: "127.0.0.1" });
+  await waitForListening(server);
+
+  const health = await request(server, "/health");
   assert.equal(health.statusCode, 200);
   const healthData = JSON.parse(health.body);
   assert.equal(healthData.ok, true);
   assert.equal(healthData.mode, "paper");
   assert.equal(healthData.realMoneyTrading, false);
 
-  const status = await request("/api/status");
+  const status = await request(server, "/api/status");
   assert.equal(status.statusCode, 200);
   const statusData = JSON.parse(status.body);
   assert.equal(statusData.mode, "paper");
@@ -65,7 +68,24 @@ try {
   assert.ok(Array.isArray(statusData.history));
   assert.ok(Array.isArray(statusData.activity));
 
-  console.log("Dashboard smoke test passed");
+  return { dashboard, server };
+}
+
+let dashboard;
+let server;
+
+try {
+  ({ dashboard, server } = await createAndCheckDashboard());
+
+  await new Promise((resolve, reject) => {
+    server.close(error => error ? reject(error) : resolve());
+  });
+  assert.equal(server.listening, false);
+
+  ({ dashboard, server } = await createAndCheckDashboard());
+  console.log("Dashboard smoke + restart/graceful shutdown test passed");
 } finally {
-  dashboard.stop();
+  if (server?.listening) {
+    dashboard.stop();
+  }
 }
