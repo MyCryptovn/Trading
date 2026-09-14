@@ -139,7 +139,7 @@ export function createGeckoTerminalDataAdapter({
         return { ok: false, reason: "INVALID_SNAPSHOT", data: null };
       }
 
-      const liquidityUsd = finiteNonNegative(attributes.reserve_in_usd);
+      const liquidityUsd = parseNumber(attributes.reserve_in_usd);
       if (liquidityUsd === null || liquidityUsd < liquidityLimit) {
         return {
           ok: false,
@@ -166,8 +166,8 @@ export function createGeckoTerminalDataAdapter({
         return { ok: false, reason: "NO_RECENT_TRADES", ageMs, liquidityUsd, data: null };
       }
 
-      const volumeUsd = finiteNonNegative(attributes.volume_usd?.h1);
-      const priceUsd = finitePositive(attributes.base_token_price_usd);
+      const volumeUsd = parseNumber(attributes.volume_usd?.h1);
+      const priceUsd = finitePositive(parseNumber(attributes.base_token_price_usd));
       const pair = attributes.name || null;
 
       return {
