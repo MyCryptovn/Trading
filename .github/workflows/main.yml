@@ -51,6 +51,8 @@ jobs:
           test -f Src/FastCandidateScorer.test.js
           test -f Src/FastDiscoveryEngine.js
           test -f Src/FastDiscoveryEngine.test.js
+          test -f Src/TradeDecisionGate.js
+          test -f Src/TradeDecisionGate.test.js
           test -f Src/StatisticalEdgeEngine.js
           test -f Src/StatisticalEdgeEngine.test.js
           test -f Src/DashboardServer.js
@@ -84,6 +86,8 @@ jobs:
           node --check Src/FastCandidateScorer.test.js
           node --check Src/FastDiscoveryEngine.js
           node --check Src/FastDiscoveryEngine.test.js
+          node --check Src/TradeDecisionGate.js
+          node --check Src/TradeDecisionGate.test.js
           node --check Src/StatisticalEdgeEngine.js
           node --check Src/StatisticalEdgeEngine.test.js
           node --check Src/MarketFeed.js
@@ -113,6 +117,9 @@ jobs:
 
       - name: Fast Discovery Engine Unit Test
         run: node Src/FastDiscoveryEngine.test.js
+
+      - name: Trade Decision Gate Unit Test
+        run: node Src/TradeDecisionGate.test.js
 
       - name: Statistical Edge Engine Unit Test
         run: node Src/StatisticalEdgeEngine.test.js
