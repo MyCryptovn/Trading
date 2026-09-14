@@ -61,6 +61,19 @@ const base = {
 
 {
   const engine = createFastDiscoveryEngine();
+  const records = Array.from({ length: 15 }, (_, index) => ({
+    ...base,
+    id: `pool-${index}`,
+    liquidityUsd: 100000 + index * 1000
+  }));
+  const result = engine.discover(records, now);
+  assert.equal(result.candidates.length, 10);
+  assert.equal(result.candidates[0].liquidityUsd, 114000);
+  assert.equal(result.candidates[9].liquidityUsd, 105000);
+}
+
+{
+  const engine = createFastDiscoveryEngine();
   const result = engine.discover([{ ...base, timestamp: now + 31000 }], now);
   assert.equal(result.candidates.length, 0);
   assert.equal(result.rejected, 1);
