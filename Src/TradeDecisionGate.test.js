@@ -9,6 +9,7 @@ const base = {
   safetyScore: 80,
   safetyApproved: true,
   statisticalEdgeConfirmed: true,
+  statisticalOutOfSampleValidated: true,
   statisticalDirection: "UP",
   spreadPct: 0.2,
   netEdgePct: 1.2,
@@ -23,6 +24,7 @@ assert.equal(decideTrade(base).action, "BUY");
 assert.equal(decideTrade(base).mode, "STANDARD");
 assert.equal(decideTrade({ ...base, safetyApproved: false }).action, "HOLD");
 assert.equal(decideTrade({ ...base, statisticalEdgeConfirmed: false }).action, "HOLD");
+assert.equal(decideTrade({ ...base, statisticalOutOfSampleValidated: false }).action, "HOLD");
 assert.equal(decideTrade({ ...base, statisticalDirection: "DOWN" }).action, "HOLD");
 assert.equal(decideTrade({ ...base, score: 79 }).action, "HOLD");
 assert.equal(decideTrade({ ...base, safetyScore: 69 }).action, "HOLD");
@@ -89,10 +91,11 @@ const noShort = decideTrade({
 assert.notEqual(noShort.action, "SELL");
 
 const ranked = rankOpportunityCandidates([
-  { id: "a", opportunity: true, safetyApproved: true, statisticalEdgeConfirmed: true, statisticalDirection: "UP", score: 88, safetyScore: 85, netEdgePct: 1.5, flowConfidence: 80 },
-  { id: "b", opportunity: true, safetyApproved: true, statisticalEdgeConfirmed: true, statisticalDirection: "UP", score: 95, safetyScore: 90, netEdgePct: 2.1, flowConfidence: 90 },
-  { id: "c", opportunity: true, safetyApproved: true, statisticalEdgeConfirmed: true, statisticalDirection: "UP", score: 91, safetyScore: 89, netEdgePct: 1.8, flowConfidence: 82 },
-  { id: "unsafe", opportunity: true, safetyApproved: false, statisticalEdgeConfirmed: true, statisticalDirection: "UP", score: 99, safetyScore: 99, netEdgePct: 3, flowConfidence: 99 }
+  { id: "a", opportunity: true, safetyApproved: true, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: true, statisticalDirection: "UP", score: 88, safetyScore: 85, netEdgePct: 1.5, flowConfidence: 80 },
+  { id: "b", opportunity: true, safetyApproved: true, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: true, statisticalDirection: "UP", score: 95, safetyScore: 90, netEdgePct: 2.1, flowConfidence: 90 },
+  { id: "c", opportunity: true, safetyApproved: true, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: true, statisticalDirection: "UP", score: 91, safetyScore: 89, netEdgePct: 1.8, flowConfidence: 82 },
+  { id: "unsafe", opportunity: true, safetyApproved: false, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: true, statisticalDirection: "UP", score: 99, safetyScore: 99, netEdgePct: 3, flowConfidence: 99 },
+  { id: "unvalidated", opportunity: true, safetyApproved: true, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: false, statisticalDirection: "UP", score: 100, safetyScore: 100, netEdgePct: 5, flowConfidence: 100 }
 ]);
 assert.deepEqual(ranked.map((x) => x.id), ["b", "c"]);
 
