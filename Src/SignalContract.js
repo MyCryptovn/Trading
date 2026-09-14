@@ -3,10 +3,6 @@ const DIRECTIONS = new Set(["UP", "DOWN", "NEUTRAL", "UNKNOWN"]);
 
 export function normalizeAction(value) {
   const action = String(value || "").trim().toUpperCase();
-  if (action === "UP") return "BUY";
-  if (action === "DOWN") return "SELL";
-  if (action === "FLOW_UP") return "BUY";
-  if (action === "FLOW_DOWN") return "SELL";
   return ACTIONS.has(action) ? action : "UNKNOWN";
 }
 
