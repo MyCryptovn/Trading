@@ -49,6 +49,8 @@ jobs:
           test -f Src/DexFlowMonitor.test.js
           test -f Src/FastCandidateScorer.js
           test -f Src/FastCandidateScorer.test.js
+          test -f Src/FastDiscoveryEngine.js
+          test -f Src/FastDiscoveryEngine.test.js
           test -f Src/DashboardServer.js
           test -f Src/DashboardServer.test.js
           test -f public/index.html
@@ -78,6 +80,8 @@ jobs:
           node --check Src/DexFlowMonitor.test.js
           node --check Src/FastCandidateScorer.js
           node --check Src/FastCandidateScorer.test.js
+          node --check Src/FastDiscoveryEngine.js
+          node --check Src/FastDiscoveryEngine.test.js
           node --check Src/MarketFeed.js
           node --check Src/MarketScanner.js
           node --check Src/SignalEngine.js
@@ -102,6 +106,9 @@ jobs:
 
       - name: Fast Candidate Scorer Unit Test
         run: node Src/FastCandidateScorer.test.js
+
+      - name: Fast Discovery Engine Unit Test
+        run: node Src/FastDiscoveryEngine.test.js
 
       - name: Dashboard Smoke Test
         run: node Src/DashboardServer.test.js
