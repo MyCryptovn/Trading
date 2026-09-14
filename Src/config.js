@@ -40,6 +40,11 @@ export const config = {
     numberEnv("STATISTICAL_MIN_SAMPLES", 50)
   ),
 
+  statisticalTestWindow: Math.max(
+    5,
+    numberEnv("STATISTICAL_TEST_WINDOW", 20)
+  ),
+
   statisticalMinDirectionalProbability: Math.min(
     0.99,
     Math.max(0.50, numberEnv("STATISTICAL_MIN_DIRECTIONAL_PROBABILITY", 0.60))
