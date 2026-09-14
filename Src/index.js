@@ -32,7 +32,7 @@ const reliability = createPipelineReliability({
   circuitCooldownMs: config.pipelineCircuitCooldownMs,
   onEvent: event => {
     if (["RETRY", "FAILED", "BLOCKED", "CIRCUIT_OPEN"].includes(event.type)) {
-      dashboard?.pushActivity?.(`${event.type} ${event.name}${event.errorCode ? `: ${event.errorCode}` : ""}`, "risk");
+      dashboard?.pushActivity(`${event.type} ${event.name}${event.errorCode ? `: ${event.errorCode}` : ""}`, "risk");
     }
   }
 });
@@ -48,11 +48,12 @@ const dexFlow = createDexFlowMonitor({
   dexAsset: config.dexAsset
 });
 const startingEquity = config.startBalance;
-let previousPrice = null;
 let latestDexFlow = null;
 let latestStatisticalEdge = null;
 let latestWalkForward = null;
 let latestTicker = null;
+let latestScan = null;
+let latestScanAt = 0;
 let tickInFlight = false;
 
 function dailyPnlPct(price) {
@@ -202,15 +203,16 @@ async function tick() {
     const marketTicker = latestTicker?.productId === `${config.asset}-USD`
       ? latestTicker
       : null;
-    const scan = scanner.update({
-      productId: `${config.asset}-USD`,
-      price,
-      bid: marketTicker?.bid ?? null,
-      ask: marketTicker?.ask ?? null,
-      spreadPct: marketTicker?.spreadPct ?? null,
-      volume24h: marketTicker?.volume24h ?? null,
-      timestamp: new Date(now).toISOString()
-    });
+    const scan = latestScan?.productId === `${config.asset}-USD` &&
+      now - latestScanAt <= 120000
+      ? latestScan
+      : {
+        signal: "HOLD",
+        productId: `${config.asset}-USD`,
+        movePct: 0,
+        spreadPct: null,
+        volume24h: marketTicker?.volume24h ?? null
+      };
 
     const signal = evaluateSignal({
       movePct: scan.movePct,
@@ -265,7 +267,6 @@ async function tick() {
       scan,
       dexFlow: latestDexFlow
     });
-    previousPrice = price;
   } finally {
     tickInFlight = false;
   }
@@ -322,6 +323,9 @@ async function start() {
 
       latestTicker = ticker;
       const feedScan = scanner.update(ticker);
+      latestScan = feedScan;
+      latestScanAt = Date.now();
+
       const feedSignal = evaluateSignal({
         movePct: feedScan.movePct,
         spreadPct: feedScan.spreadPct,
