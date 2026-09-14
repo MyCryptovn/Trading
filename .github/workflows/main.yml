@@ -43,6 +43,8 @@ jobs:
           test -f Src/OnchainDataAdapter.test.js
           test -f Src/OnchainFlowIntegration.js
           test -f Src/OnchainFlowIntegration.test.js
+          test -f Src/GeckoTerminalDataAdapter.js
+          test -f Src/GeckoTerminalDataAdapter.test.js
           test -f Src/DashboardServer.js
           test -f Src/DashboardServer.test.js
           test -f public/index.html
@@ -66,6 +68,8 @@ jobs:
           node --check Src/OnchainDataAdapter.test.js
           node --check Src/OnchainFlowIntegration.js
           node --check Src/OnchainFlowIntegration.test.js
+          node --check Src/GeckoTerminalDataAdapter.js
+          node --check Src/GeckoTerminalDataAdapter.test.js
           node --check Src/MarketFeed.js
           node --check Src/MarketScanner.js
           node --check Src/SignalEngine.js
@@ -81,6 +85,9 @@ jobs:
 
       - name: On-chain Flow Integration Test
         run: node Src/OnchainFlowIntegration.test.js
+
+      - name: GeckoTerminal Adapter Unit Test
+        run: node Src/GeckoTerminalDataAdapter.test.js
 
       - name: Dashboard Smoke Test
         run: node Src/DashboardServer.test.js
