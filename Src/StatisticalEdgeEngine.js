@@ -8,7 +8,7 @@ const DEFAULTS = Object.freeze({
 });
 
 function finite(value) {
-  return Number.isFinite(Number(value));
+  return value !== null && value !== undefined && Number.isFinite(Number(value));
 }
 
 function clamp(value, min, max) {
