@@ -50,7 +50,6 @@ const dashboard = createDashboardServer({
 
 function riskCheck(netEdgePct, price) {
   const equity = getEquity(state, price);
-
   return risk.evaluate({
     action: "BUY",
     equityUsd: equity,
@@ -91,32 +90,24 @@ function signalCapitalFlow() {
   return latestDexFlow.flow;
 }
 
-function flowDirection() {
-  const flow = signalCapitalFlow();
-  if (flow?.action === "BUY") return "UP";
-  if (flow?.action === "SELL") return "DOWN";
-  return "UNKNOWN";
-}
-
 function buildStatisticalContext() {
-  const direction = flowDirection();
-  const momentum = previousPrice === null
-    ? "UNKNOWN"
-    : previousPrice < 0
-      ? "UNKNOWN"
-      : "UP";
-  return `${config.asset}|FLOW_${direction}|MOMENTUM_${momentum}`;
+  const direction = signalCapitalFlow()?.action === "BUY"
+    ? "UP"
+    : signalCapitalFlow()?.action === "SELL"
+      ? "DOWN"
+      : "UNKNOWN";
+  return `${config.asset}|FLOW_${direction}`;
 }
 
-function buildTradeEvidence({ price, scan, signal, timestamp }) {
+function buildTradeEvidence({ scan, signal, timestamp }) {
   const momentumDirection =
     previousPrice === null
       ? "UNKNOWN"
-      : price > previousPrice
+      : signal?.action === "BUY"
         ? "UP"
-        : price < previousPrice
+        : signal?.action === "SELL"
           ? "DOWN"
-          : "FLAT";
+          : "UNKNOWN";
 
   const flow = signalCapitalFlow();
 
@@ -205,7 +196,6 @@ async function tick() {
   await updateStatistics(price, now);
 
   const evidence = buildTradeEvidence({
-    price,
     scan,
     signal,
     timestamp: now
