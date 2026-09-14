@@ -1,0 +1,74 @@
+import assert from "node:assert/strict";
+import { decideTrade, rankOpportunityCandidates } from "./TradeDecisionGate.js";
+
+const now = 1_700_000_000_000;
+const base = {
+  nowMs: now,
+  timestamp: now,
+  score: 82,
+  safetyScore: 80,
+  spreadPct: 0.2,
+  netEdgePct: 1.2,
+  flowConfidence: 70,
+  flowDirection: "UP",
+  momentumDirection: "UP",
+  newsRisk: "NONE",
+  hasPosition: false
+};
+
+assert.equal(decideTrade(base).action, "BUY");
+assert.equal(decideTrade(base).mode, "STANDARD");
+assert.equal(decideTrade({ ...base, score: 79 }).action, "HOLD");
+assert.equal(decideTrade({ ...base, safetyScore: 69 }).action, "HOLD");
+assert.equal(decideTrade({ ...base, netEdgePct: 0.4 }).action, "HOLD");
+assert.equal(decideTrade({ ...base, flowConfidence: 59 }).action, "HOLD");
+assert.equal(decideTrade({ ...base, flowDirection: "DOWN" }).action, "HOLD");
+assert.equal(decideTrade({ ...base, momentumDirection: "DOWN" }).action, "HOLD");
+assert.equal(decideTrade({ ...base, newsRisk: "HIGH" }).action, "HOLD");
+assert.equal(decideTrade({ ...base, timestamp: now - 120001 }).action, "HOLD");
+
+const hot = decideTrade({
+  ...base,
+  score: 92,
+  safetyScore: 90,
+  netEdgePct: 2.0,
+  flowConfidence: 85,
+  opportunity: true
+});
+assert.equal(hot.action, "BUY");
+assert.equal(hot.mode, "OPPORTUNITY");
+
+const hotRejected = decideTrade({
+  ...base,
+  score: 92,
+  safetyScore: 90,
+  netEdgePct: 2.0,
+  flowConfidence: 70,
+  opportunity: true
+});
+assert.equal(hotRejected.action, "HOLD");
+
+const exit = decideTrade({
+  ...base,
+  hasPosition: true,
+  flowDirection: "DOWN"
+});
+assert.equal(exit.action, "SELL");
+assert.equal(exit.mode, "EXIT");
+
+const noShort = decideTrade({
+  ...base,
+  hasPosition: false,
+  flowDirection: "DOWN",
+  momentumDirection: "DOWN"
+});
+assert.notEqual(noShort.action, "SELL");
+
+const ranked = rankOpportunityCandidates([
+  { id: "a", opportunity: true, score: 88, safetyScore: 85, netEdgePct: 1.5, flowConfidence: 80 },
+  { id: "b", opportunity: true, score: 95, safetyScore: 90, netEdgePct: 2.1, flowConfidence: 90 },
+  { id: "c", opportunity: true, score: 91, safetyScore: 89, netEdgePct: 1.8, flowConfidence: 82 }
+]);
+assert.deepEqual(ranked.map((x) => x.id), ["b", "c"]);
+
+console.log("Trade Decision Gate tests passed");
