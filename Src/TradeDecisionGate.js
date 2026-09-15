@@ -31,9 +31,28 @@ export function decideTrade(input = {}, options = {}) {
   const flowDirection = String(input.flowDirection || "UNKNOWN").toUpperCase();
   const momentumDirection = String(input.momentumDirection || "UNKNOWN").toUpperCase();
   const newsRisk = String(input.newsRisk || "NONE").toUpperCase();
+  const aiDecisionAction = String(input.aiDecisionAction || "UNKNOWN").toUpperCase();
 
   if (!finite(timestamp) || timestamp > now + 30000 || now - timestamp > cfg.maxDataAgeMs) {
     return { action: "HOLD", mode: "NONE", reasons: ["STALE_OR_INVALID_DATA"] };
+  }
+
+  // TradingAgents is the directional decision authority. The bot may veto
+  // that decision through deterministic safety/risk controls, but it must not
+  // silently replace an AI BUY/SELL with its own directional guess.
+  if (!hasPosition && aiDecisionAction !== "BUY") {
+    if (aiDecisionAction === "SELL") {
+      return { action: "HOLD", mode: "NONE", reasons: ["AI_DECISION_SELL_WITHOUT_POSITION"] };
+    }
+    return { action: "HOLD", mode: "NONE", reasons: ["AI_DECISION_NOT_BUY"] };
+  }
+
+  if (hasPosition && aiDecisionAction === "SELL") {
+    return {
+      action: "SELL",
+      mode: "AI_EXIT",
+      reasons: ["TRADINGAGENTS_SELL_DECISION"]
+    };
   }
 
   if (hasPosition) {
@@ -56,14 +75,15 @@ export function decideTrade(input = {}, options = {}) {
       if (finite(spreadPct) && spreadPct > cfg.maxSpreadPct) exitReasons.push("SPREAD_TOO_WIDE");
       return {
         action: "SELL",
-        mode: "EXIT",
+        mode: "SAFETY_EXIT",
         reasons: exitReasons.length ? exitReasons : ["POSITION_RISK_DETERIORATED"]
       };
     }
   }
 
-  // BUY is fail-closed: safety, empirical statistical edge, and an explicit
-  // out-of-sample validation must all be present. A score alone can never buy.
+  // BUY remains fail-closed: TradingAgents chooses the direction, but the
+  // deterministic bot gates still decide whether that AI decision is safe to
+  // paper-execute. No AI output can bypass these controls.
   if (input.safetyApproved !== true) reasons.push("SAFETY_NOT_EXPLICITLY_APPROVED");
   if (input.statisticalEdgeConfirmed !== true) reasons.push("STATISTICAL_EDGE_NOT_CONFIRMED");
   if (input.statisticalOutOfSampleValidated !== true) reasons.push("OUT_OF_SAMPLE_VALIDATION_NOT_CONFIRMED");
@@ -98,7 +118,7 @@ export function decideTrade(input = {}, options = {}) {
   return {
     action: "BUY",
     mode: opportunity ? "OPPORTUNITY" : "STANDARD",
-    reasons: [opportunity ? "EXCEPTIONAL_EDGE_CONFIRMED" : "ALL_BUY_GATES_PASSED"]
+    reasons: [opportunity ? "AI_BUY_ALL_GATES_PASSED" : "AI_BUY_ALL_GATES_PASSED"]
   };
 }
 
@@ -108,6 +128,7 @@ export function rankOpportunityCandidates(candidates = [], options = {}) {
 
   return candidates
     .filter((c) => c && c.opportunity === true)
+    .filter((c) => c.aiDecisionAction === "BUY")
     .filter((c) => c.safetyApproved === true && c.statisticalEdgeConfirmed === true)
     .filter((c) => c.statisticalOutOfSampleValidated === true)
     .filter((c) => String(c.statisticalDirection || "NONE").toUpperCase() === "UP")
