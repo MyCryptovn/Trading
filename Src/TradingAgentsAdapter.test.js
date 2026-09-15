@@ -59,8 +59,50 @@ const snapshot = {
 }
 
 {
+  let calls = 0;
   const adapter = createTradingAgentsAdapter({
-    runner: async () => ({ decision: "BUY", confidence: 80 })
+    runner: async () => {
+      calls += 1;
+      return { decision: "BUY", confidence: 80 };
+    }
+  });
+  const result = await adapter.analyze({
+    snapshot: { ...snapshot, timestamp: now - 120001 },
+    nowMs: now
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.action, "UNKNOWN");
+  assert.equal(calls, 0);
+}
+
+{
+  const adapter = createTradingAgentsAdapter({
+    runner: async () => ({ decision: "BUY", confidence: 59 })
+  });
+  const result = await adapter.analyze({ snapshot, nowMs: now });
+  assert.equal(result.ok, true);
+  assert.equal(result.action, "BUY");
+  assert.equal(result.confidence, 0.59);
+}
+
+{
+  const adapter = createTradingAgentsAdapter({
+    runner: async () => {
+      throw new Error("runner offline");
+    }
+  });
+  const result = await adapter.analyze({ snapshot, nowMs: now });
+  assert.equal(result.ok, false);
+  assert.equal(result.action, "UNKNOWN");
+  assert.equal(result.reason, "TRADINGAGENTS_ERROR");
+}
+
+{
+  const adapter = createTradingAgentsAdapter({
+    runner: async ({ context }) => {
+      assert.equal(context.regime, "TREND_UP");
+      return { decision: "BUY", confidence: 80 };
+    }
   });
   const result = await adapter.analyze({
     snapshot: { ...snapshot, timestamp: now },
