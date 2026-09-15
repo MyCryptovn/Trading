@@ -69,7 +69,11 @@ export function createTradingAgentsProcessRunner(options = {}) {
 export function createTradingAgentsAdapter(options = {}) {
   const maxAgeMs = Number(options.maxAgeMs ?? 120000);
   const maxFutureMs = Number(options.maxFutureMs ?? 5000);
-  const runner = options.runner;
+  const runner = options.runner ?? (
+    process.env.TRADINGAGENTS_ENABLED === "1"
+      ? createTradingAgentsProcessRunner()
+      : undefined
+  );
 
   if (!Number.isFinite(maxAgeMs) || maxAgeMs <= 0) {
     throw new TypeError("maxAgeMs must be a positive number");
@@ -125,7 +129,7 @@ export function createTradingAgentsAdapter(options = {}) {
 
     // TradingAgents v0.4.0 exposes a five-tier rating, not a calibrated
     // probability. Preserve the validated action for observation, but give
-    // it zero fusion weight until an empirical confidence calibration exists.
+    // it zero fusion weight until empirical confidence calibration exists.
     if (confidence === null) {
       return {
         ok: true,
