@@ -33,6 +33,9 @@ jobs:
       - name: Check Bot Files
         run: |
           test -f Src/index.js
+          test -f Src/MultiCoinCandidateEngine.js
+          test -f Src/MultiCoinCandidateEngine.test.js
+          test -f Src/MultiCoinCandidateEngine.benchmark.test.js
           test -f Src/FastCandidatePipeline.js
           test -f Src/FastCandidatePipeline.test.js
           test -f Src/SignalEngine.js
@@ -53,6 +56,9 @@ jobs:
       - name: Syntax Check
         run: |
           node --check Src/index.js
+          node --check Src/MultiCoinCandidateEngine.js
+          node --check Src/MultiCoinCandidateEngine.test.js
+          node --check Src/MultiCoinCandidateEngine.benchmark.test.js
           node --check Src/FastCandidatePipeline.js
           node --check Src/FastCandidatePipeline.test.js
           node --check Src/SignalEngine.js
@@ -93,6 +99,12 @@ jobs:
 
       - name: Fast Discovery Engine Unit Test
         run: node Src/FastDiscoveryEngine.test.js
+
+      - name: Multi-Coin Candidate Engine Unit Test
+        run: node Src/MultiCoinCandidateEngine.test.js
+
+      - name: Multi-Coin 10k Benchmark
+        run: node Src/MultiCoinCandidateEngine.benchmark.test.js
 
       - name: Fast Candidate Pipeline Unit Test
         run: node Src/FastCandidatePipeline.test.js
