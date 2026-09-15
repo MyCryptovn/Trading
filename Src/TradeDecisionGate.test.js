@@ -5,6 +5,7 @@ const now = 1_700_000_000_000;
 const base = {
   nowMs: now,
   timestamp: now,
+  aiDecisionAction: "BUY",
   score: 82,
   safetyScore: 80,
   safetyApproved: true,
@@ -22,6 +23,8 @@ const base = {
 
 assert.equal(decideTrade(base).action, "BUY");
 assert.equal(decideTrade(base).mode, "STANDARD");
+assert.equal(decideTrade({ ...base, aiDecisionAction: "HOLD" }).action, "HOLD");
+assert.equal(decideTrade({ ...base, aiDecisionAction: "SELL" }).action, "HOLD");
 assert.equal(decideTrade({ ...base, safetyApproved: false }).action, "HOLD");
 assert.equal(decideTrade({ ...base, statisticalEdgeConfirmed: false }).action, "HOLD");
 assert.equal(decideTrade({ ...base, statisticalOutOfSampleValidated: false }).action, "HOLD");
@@ -62,7 +65,15 @@ const exit = decideTrade({
   flowDirection: "DOWN"
 });
 assert.equal(exit.action, "SELL");
-assert.equal(exit.mode, "EXIT");
+assert.equal(exit.mode, "SAFETY_EXIT");
+
+const exitAi = decideTrade({
+  ...base,
+  hasPosition: true,
+  aiDecisionAction: "SELL"
+});
+assert.equal(exitAi.action, "SELL");
+assert.equal(exitAi.mode, "AI_EXIT");
 
 const exitLowFlowConfidence = decideTrade({
   ...base,
@@ -71,7 +82,7 @@ const exitLowFlowConfidence = decideTrade({
   flowConfidence: 59
 });
 assert.equal(exitLowFlowConfidence.action, "SELL");
-assert.equal(exitLowFlowConfidence.mode, "EXIT");
+assert.equal(exitLowFlowConfidence.mode, "SAFETY_EXIT");
 
 const exitUnknownFlowConfidence = decideTrade({
   ...base,
@@ -80,7 +91,7 @@ const exitUnknownFlowConfidence = decideTrade({
   flowConfidence: "unknown"
 });
 assert.equal(exitUnknownFlowConfidence.action, "SELL");
-assert.equal(exitUnknownFlowConfidence.mode, "EXIT");
+assert.equal(exitUnknownFlowConfidence.mode, "SAFETY_EXIT");
 
 const noShort = decideTrade({
   ...base,
@@ -91,11 +102,11 @@ const noShort = decideTrade({
 assert.notEqual(noShort.action, "SELL");
 
 const ranked = rankOpportunityCandidates([
-  { id: "a", opportunity: true, safetyApproved: true, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: true, statisticalDirection: "UP", score: 88, safetyScore: 85, netEdgePct: 1.5, flowConfidence: 80 },
-  { id: "b", opportunity: true, safetyApproved: true, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: true, statisticalDirection: "UP", score: 95, safetyScore: 90, netEdgePct: 2.1, flowConfidence: 90 },
-  { id: "c", opportunity: true, safetyApproved: true, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: true, statisticalDirection: "UP", score: 91, safetyScore: 89, netEdgePct: 1.8, flowConfidence: 82 },
-  { id: "unsafe", opportunity: true, safetyApproved: false, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: true, statisticalDirection: "UP", score: 99, safetyScore: 99, netEdgePct: 3, flowConfidence: 99 },
-  { id: "unvalidated", opportunity: true, safetyApproved: true, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: false, statisticalDirection: "UP", score: 100, safetyScore: 100, netEdgePct: 5, flowConfidence: 100 }
+  { id: "a", opportunity: true, aiDecisionAction: "BUY", safetyApproved: true, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: true, statisticalDirection: "UP", score: 88, safetyScore: 85, netEdgePct: 1.5, flowConfidence: 80 },
+  { id: "b", opportunity: true, aiDecisionAction: "BUY", safetyApproved: true, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: true, statisticalDirection: "UP", score: 95, safetyScore: 90, netEdgePct: 2.1, flowConfidence: 90 },
+  { id: "c", opportunity: true, aiDecisionAction: "BUY", safetyApproved: true, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: true, statisticalDirection: "UP", score: 91, safetyScore: 89, netEdgePct: 1.8, flowConfidence: 82 },
+  { id: "unsafe", opportunity: true, aiDecisionAction: "BUY", safetyApproved: false, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: true, statisticalDirection: "UP", score: 99, safetyScore: 99, netEdgePct: 3, flowConfidence: 99 },
+  { id: "unvalidated", opportunity: true, aiDecisionAction: "BUY", safetyApproved: true, statisticalEdgeConfirmed: true, statisticalOutOfSampleValidated: false, statisticalDirection: "UP", score: 100, safetyScore: 100, netEdgePct: 5, flowConfidence: 100 }
 ]);
 assert.deepEqual(ranked.map((x) => x.id), ["b", "c"]);
 
