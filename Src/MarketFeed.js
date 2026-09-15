@@ -15,11 +15,23 @@ const DEFAULT_PRODUCTS = [
   "SUI-USD"
 ];
 
+function resolveProducts(products) {
+  if (Array.isArray(products) && products.length) return products;
+
+  const configured = String(process.env.MARKET_PRODUCTS || "")
+    .split(",")
+    .map(value => value.trim().toUpperCase())
+    .filter(Boolean);
+
+  return configured.length ? [...new Set(configured)] : DEFAULT_PRODUCTS;
+}
+
 export function startMarketFeed({
-  products = DEFAULT_PRODUCTS,
+  products,
   onTicker,
   onError
 } = {}) {
+  const subscribedProducts = resolveProducts(products);
   let closedByUser = false;
   let reconnectTimer = null;
 
@@ -30,7 +42,7 @@ export function startMarketFeed({
       ws.send(JSON.stringify({
         type: "subscribe",
         channel: "ticker",
-        product_ids: products
+        product_ids: subscribedProducts
       }));
 
       ws.send(JSON.stringify({
