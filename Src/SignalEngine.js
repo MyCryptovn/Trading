@@ -36,11 +36,11 @@ export function evaluateSignal({
       return { action: "HOLD", reason: "FLOW_CONFIDENCE_TOO_LOW", flow: capitalFlow };
     }
 
-    if (movePct > 0 && capitalFlow.action !== "FLOW_UP") {
+    if (movePct > 0 && capitalFlow.action !== "BUY") {
       return { action: "HOLD", reason: "FLOW_NOT_CONFIRMING_BUY", flow: capitalFlow };
     }
 
-    if (movePct < 0 && capitalFlow.action !== "FLOW_DOWN") {
+    if (movePct < 0 && capitalFlow.action !== "SELL") {
       return { action: "HOLD", reason: "FLOW_NOT_CONFIRMING_SELL", flow: capitalFlow };
     }
   }
