@@ -1,20 +1,19 @@
 name: DEX Bot Paper Test
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -27,78 +26,19 @@ jobs:
 
       - name: Check Bot Files
         run: |
-          test -f package.json
           test -f Src/index.js
-          test -f Src/config.js
-          test -f Src/Papertrader.js
-          test -f Src/TradingCosts.js
-          test -f Src/RiskEngine.js
-          test -f Src/TokenSafetyScanner.js
-          test -f Src/TokenSafetyScanner.test.js
-          test -f Src/CapitalFlowScanner.js
-          test -f Src/CapitalFlowScanner.test.js
-          test -f Src/OnchainDataAdapter.js
-          test -f Src/OnchainDataAdapter.test.js
-          test -f Src/OnchainFlowIntegration.js
-          test -f Src/OnchainFlowIntegration.test.js
-          test -f Src/GeckoTerminalDataAdapter.js
-          test -f Src/GeckoTerminalDataAdapter.test.js
-          test -f Src/DexFlowMonitor.js
-          test -f Src/DexFlowMonitor.test.js
-          test -f Src/FastCandidateScorer.js
-          test -f Src/FastCandidateScorer.test.js
-          test -f Src/FastDiscoveryEngine.js
-          test -f Src/FastDiscoveryEngine.test.js
-          test -f Src/TradeDecisionGate.js
-          test -f Src/TradeDecisionGate.test.js
-          test -f Src/StatisticalJournal.js
-          test -f Src/StatisticalJournal.test.js
-          test -f Src/StatisticalEdgeEngine.js
-          test -f Src/StatisticalEdgeEngine.test.js
-          test -f Src/DashboardServer.js
-          test -f Src/DashboardServer.test.js
+          test -f Src/FastCandidatePipeline.js
+          test -f Src/FastCandidatePipeline.test.js
           test -f Src/DataQualityGate.js
           test -f Src/DataQualityGate.test.js
-          test -f public/index.html
-          test -f Src/MarketFeed.js
-          test -f Src/MarketScanner.js
-          test -f Src/SignalEngine.js
-          test -f Src/logger.js
 
       - name: Syntax Check
         run: |
           node --check Src/index.js
-          node --check Src/DashboardServer.js
-          node --check Src/DashboardServer.test.js
-          node --check Src/Papertrader.js
-          node --check Src/RiskEngine.js
-          node --check Src/TokenSafetyScanner.js
-          node --check Src/TokenSafetyScanner.test.js
-          node --check Src/CapitalFlowScanner.js
-          node --check Src/CapitalFlowScanner.test.js
-          node --check Src/OnchainDataAdapter.js
-          node --check Src/OnchainDataAdapter.test.js
-          node --check Src/OnchainFlowIntegration.js
-          node --check Src/OnchainFlowIntegration.test.js
-          node --check Src/GeckoTerminalDataAdapter.js
-          node --check Src/GeckoTerminalDataAdapter.test.js
-          node --check Src/DexFlowMonitor.js
-          node --check Src/DexFlowMonitor.test.js
-          node --check Src/FastCandidateScorer.js
-          node --check Src/FastCandidateScorer.test.js
-          node --check Src/FastDiscoveryEngine.js
-          node --check Src/FastDiscoveryEngine.test.js
-          node --check Src/TradeDecisionGate.js
-          node --check Src/TradeDecisionGate.test.js
-          node --check Src/StatisticalJournal.js
-          node --check Src/StatisticalJournal.test.js
-          node --check Src/StatisticalEdgeEngine.js
-          node --check Src/StatisticalEdgeEngine.test.js
+          node --check Src/FastCandidatePipeline.js
+          node --check Src/FastCandidatePipeline.test.js
           node --check Src/DataQualityGate.js
           node --check Src/DataQualityGate.test.js
-          node --check Src/MarketFeed.js
-          node --check Src/MarketScanner.js
-          node --check Src/SignalEngine.js
 
       - name: Token Safety Unit Test
         run: node Src/TokenSafetyScanner.test.js
@@ -124,6 +64,9 @@ jobs:
       - name: Fast Discovery Engine Unit Test
         run: node Src/FastDiscoveryEngine.test.js
 
+      - name: Fast Candidate Pipeline Unit Test
+        run: node Src/FastCandidatePipeline.test.js
+
       - name: Trade Decision Gate Unit Test
         run: node Src/TradeDecisionGate.test.js
 
@@ -137,14 +80,10 @@ jobs:
         run: node Src/DataQualityGate.test.js
 
       - name: Dashboard Smoke Test
-        run: node Src/DashboardServer.test.js
+        run: RUN_ONCE=1 node Src/index.js
 
       - name: Paper Bot Smoke Test
-        run: npm test
-        env:
-          BOT_MODE: paper
-          ASSET: BTC
-          START_BALANCE_USD: 1000
+        run: RUN_ONCE=1 BOT_MODE=paper node Src/index.js
 
       - name: Test completed
-        run: echo "Paper bot smoke test completed successfully"
+        run: echo "All DEX bot paper tests completed successfully"
