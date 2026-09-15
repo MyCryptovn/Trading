@@ -54,9 +54,11 @@ export function createPaperLiveResearchEngine(options = {}) {
     let stopFeed = null;
     let timer = null;
     let researchInFlight = false;
+    let researchScheduled = false;
     let activeResearch = null;
 
     const maybeResearch = async () => {
+      researchScheduled = false;
       if (researchInFlight) return;
       const ranked = candidateEngine.rank([...universe.values()], Date.now());
       if (!ranked.candidates.length) return;
@@ -83,8 +85,15 @@ export function createPaperLiveResearchEngine(options = {}) {
       await activeResearch;
     };
 
+    const scheduleResearch = () => {
+      if (researchScheduled || researchInFlight) return;
+      researchScheduled = true;
+      queueMicrotask(() => { void maybeResearch(); });
+    };
+
     const finish = async () => {
       if (timer) clearTimeout(timer);
+      if (researchScheduled) await new Promise(resolve => queueMicrotask(resolve));
       if (activeResearch) await activeResearch;
       stopFeed?.();
       stats.endedAt = Date.now();
@@ -107,7 +116,7 @@ export function createPaperLiveResearchEngine(options = {}) {
         }
         universe.set(ticker.productId, ticker);
         stats.universeSize = universe.size;
-        await maybeResearch();
+        scheduleResearch();
       },
       onError: () => {
         stats.errors += 1;
