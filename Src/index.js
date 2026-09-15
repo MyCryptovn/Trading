@@ -104,6 +104,40 @@ function updateUniverse(ticker) {
   return refreshMultiCoinCandidates(Date.now());
 }
 
+async function refreshDexFlow() {
+  if (!dexFlow.enabled) {
+    latestDexFlow = {
+      ok: false,
+      enabled: false,
+      action: "HOLD",
+      confidence: 0,
+      reason: "DEX_FLOW_NOT_CONFIGURED"
+    };
+    return latestDexFlow;
+  }
+
+  latestDexFlow = await dexFlow.evaluate();
+  return latestDexFlow;
+}
+
+function signalCapitalFlow() {
+  if (!latestDexFlow?.ok) {
+    return {
+      action: "HOLD",
+      confidence: 0,
+      reason: latestDexFlow?.reason || "DEX_FLOW_NOT_AVAILABLE"
+    };
+  }
+
+  return {
+    action: normalizeAction(latestDexFlow.action),
+    confidence: Number.isFinite(Number(latestDexFlow.confidence))
+      ? Number(latestDexFlow.confidence)
+      : 0,
+    reason: latestDexFlow.reason || "DEX_FLOW_EVALUATED"
+  };
+}
+
 function buildStatisticalContext() {
   const action = normalizeAction(signalCapitalFlow()?.action);
   const direction = actionToDirection(action);
