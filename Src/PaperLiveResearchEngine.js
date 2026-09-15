@@ -54,6 +54,7 @@ export function createPaperLiveResearchEngine(options = {}) {
     let stopFeed = null;
     let timer = null;
     let researchInFlight = false;
+    let activeResearch = null;
 
     const maybeResearch = async () => {
       if (researchInFlight) return;
@@ -61,25 +62,30 @@ export function createPaperLiveResearchEngine(options = {}) {
       if (!ranked.candidates.length) return;
 
       researchInFlight = true;
-      try {
-        const result = await researchPipeline.research(ranked.candidates, analyze, Date.now());
-        if (!result.skipped) {
-          stats.researchRuns += 1;
-          stats.researchSelected += result.selected;
-          for (const item of result.results || []) {
-            const action = normalizeAction(item?.action);
-            stats.actions[action] += 1;
+      activeResearch = (async () => {
+        try {
+          const result = await researchPipeline.research(ranked.candidates, analyze, Date.now());
+          if (!result.skipped) {
+            stats.researchRuns += 1;
+            stats.researchSelected += result.selected;
+            for (const item of result.results || []) {
+              const action = normalizeAction(item?.action);
+              stats.actions[action] += 1;
+            }
           }
+        } catch {
+          stats.errors += 1;
+        } finally {
+          researchInFlight = false;
         }
-      } catch {
-        stats.errors += 1;
-      } finally {
-        researchInFlight = false;
-      }
+      })();
+
+      await activeResearch;
     };
 
-    const finish = () => {
+    const finish = async () => {
       if (timer) clearTimeout(timer);
+      if (activeResearch) await activeResearch;
       stopFeed?.();
       stats.endedAt = Date.now();
       stats.universeSize = universe.size;
@@ -108,7 +114,7 @@ export function createPaperLiveResearchEngine(options = {}) {
       }
     });
 
-    timer = setTimeout(finish, Number(durationMs));
+    timer = setTimeout(() => { void finish(); }, Number(durationMs));
     return done;
   }
 
