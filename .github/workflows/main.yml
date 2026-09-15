@@ -36,6 +36,10 @@ jobs:
           test -f Src/MultiCoinCandidateEngine.js
           test -f Src/MultiCoinCandidateEngine.test.js
           test -f Src/MultiCoinCandidateEngine.benchmark.test.js
+          test -f Src/AIResearchRouter.js
+          test -f Src/AIResearchRouter.test.js
+          test -f Src/MultiCoinResearchPipeline.js
+          test -f Src/MultiCoinResearchPipeline.test.js
           test -f Src/FastCandidatePipeline.js
           test -f Src/FastCandidatePipeline.test.js
           test -f Src/SignalEngine.js
@@ -59,6 +63,10 @@ jobs:
           node --check Src/MultiCoinCandidateEngine.js
           node --check Src/MultiCoinCandidateEngine.test.js
           node --check Src/MultiCoinCandidateEngine.benchmark.test.js
+          node --check Src/AIResearchRouter.js
+          node --check Src/AIResearchRouter.test.js
+          node --check Src/MultiCoinResearchPipeline.js
+          node --check Src/MultiCoinResearchPipeline.test.js
           node --check Src/FastCandidatePipeline.js
           node --check Src/FastCandidatePipeline.test.js
           node --check Src/SignalEngine.js
@@ -105,6 +113,12 @@ jobs:
 
       - name: Multi-Coin 10k Benchmark
         run: node Src/MultiCoinCandidateEngine.benchmark.test.js
+
+      - name: AI Research Router Unit Test
+        run: node Src/AIResearchRouter.test.js
+
+      - name: Multi-Coin Research Pipeline Unit Test
+        run: node Src/MultiCoinResearchPipeline.test.js
 
       - name: Fast Candidate Pipeline Unit Test
         run: node Src/FastCandidatePipeline.test.js
