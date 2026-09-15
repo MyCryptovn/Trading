@@ -148,6 +148,7 @@ function buildTradeEvidence({ scan, signal, timestamp }) {
   const flow = signalCapitalFlow();
   const flowDirection = actionToDirection(flow?.action);
   const momentumDirection = actionToDirection(signal?.action);
+  const aiDecisionAction = normalizeAction(latestResearch?.action);
 
   return {
     timestamp,
@@ -169,7 +170,10 @@ function buildTradeEvidence({ scan, signal, timestamp }) {
     newsRisk: "NONE",
     hasPosition: Boolean(state.asset && state.asset !== 0),
     opportunity: false,
-    signalAction: normalizeAction(signal?.action)
+    signalAction: normalizeAction(signal?.action),
+    aiDecisionAction,
+    aiConfidence: latestResearch?.confidence ?? null,
+    aiDecisionSource: latestResearch?.source || "tradingagents"
   };
 }
 
@@ -367,7 +371,7 @@ async function start() {
   if (config.dexNetwork && config.dexPoolAddress && !dexFlow.enabled) {
     log("DEX flow monitor: HOLD until DEX_ASSET matches ASSET");
   }
-  log("TradingAgents: research-only integration (execution disabled)");
+  log("TradingAgents: directional decision authority; execution disabled");
   log("Trade decision: fail-closed TradeDecisionGate");
   log("BUY requires explicit token safety + empirical statistical edge");
   log("Out-of-sample validation: REQUIRED before BUY");
