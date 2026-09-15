@@ -1,0 +1,80 @@
+name: Paper Live AI Evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: "AI provider"
+        required: true
+        default: "groq"
+        type: choice
+        options:
+          - groq
+          - google
+      duration_minutes:
+        description: "Live market observation duration"
+        required: true
+        default: "10"
+        type: string
+      max_candidates:
+        description: "Maximum AI candidates per research cycle"
+        required: true
+        default: "4"
+        type: string
+
+jobs:
+  paper-live-ai:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TRADINGAGENTS_ENABLED: "1"
+      TRADINGAGENTS_LLM_PROVIDER: ${{ inputs.provider }}
+      PAPER_LIVE_DURATION_MS: ${{ fromJSON(inputs.duration_minutes) * 60000 }}
+      PAPER_LIVE_MAX_CANDIDATES: ${{ inputs.max_candidates }}
+      PAPER_LIVE_MAX_CONCURRENT: "2"
+      MARKET_PRODUCTS: "BTC-USD,ETH-USD,SOL-USD,BNB-USD,XRP-USD,ADA-USD,DOGE-USD,AVAX-USD,LINK-USD,SUI-USD"
+      TRADINGAGENTS_PYTHON: "python3"
+      TRADINGAGENTS_RUNNER_SCRIPT: "Python/tradingagents_runner.py"
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check provider secret
+        shell: bash
+        run: |
+          if [ "${{ inputs.provider }}" = "groq" ]; then
+            test -n "$GROQ_API_KEY" || { echo "GROQ_API_KEY secret is missing"; exit 1; }
+          else
+            test -n "$GEMINI_API_KEY" || { echo "GEMINI_API_KEY secret is missing"; exit 1; }
+          fi
+
+      - name: Install Node dependencies
+        run: npm install
+
+      - name: Install TradingAgents v0.4.0
+        run: python3 -m pip install -r Python/requirements.txt
+
+      - name: Syntax and paper safety checks
+        run: |
+          node --check Src/PaperLiveResearchEngine.js
+          node --check Src/run-paper-live-ai.js
+          python3 -m py_compile Python/tradingagents_runner.py
+          node Src/PaperLiveResearchEngine.test.js
+          node Src/TradingAgentsAdapter.test.js
+
+      - name: Run live-market paper AI evaluation
+        run: node Src/run-paper-live-ai.js
