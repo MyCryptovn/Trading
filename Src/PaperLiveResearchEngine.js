@@ -25,6 +25,7 @@ export function createPaperLiveResearchEngine(options = {}) {
     maxAgeMs: cfg.maxAgeMs,
     minIntervalMs: cfg.researchIntervalMs
   });
+  const feedFactory = options.feedFactory || startMarketFeed;
 
   const universe = new Map();
   const stats = {
@@ -89,7 +90,7 @@ export function createPaperLiveResearchEngine(options = {}) {
       });
     };
 
-    stopFeed = startMarketFeed({
+    stopFeed = feedFactory({
       products,
       onTicker: async ticker => {
         stats.ticks += 1;
