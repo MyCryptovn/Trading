@@ -26,13 +26,25 @@ def configure_provider(config):
         provider = provider or "google"
 
     config["llm_provider"] = provider or config.get("llm_provider", "openai")
+    provider_name = config["llm_provider"].lower()
 
-    if config["llm_provider"].lower() == "google":
+    if provider_name == "google":
         config["deep_think_llm"] = os.getenv(
             "TRADINGAGENTS_DEEP_MODEL", "gemini-3.5-flash"
         )
         config["quick_think_llm"] = os.getenv(
             "TRADINGAGENTS_QUICK_MODEL", "gemini-3.5-flash"
+        )
+    elif provider_name == "groq":
+        # TradingAgents v0.4.0 inherits OpenAI's default quick model when a
+        # provider-specific model is not supplied. That is unsafe for Groq:
+        # Groq does not expose gpt-5.6-luna. Use current supported Groq models
+        # while preserving a fast quick-think tier and a stronger deep tier.
+        config["deep_think_llm"] = os.getenv(
+            "TRADINGAGENTS_DEEP_MODEL", "openai/gpt-oss-120b"
+        )
+        config["quick_think_llm"] = os.getenv(
+            "TRADINGAGENTS_QUICK_MODEL", "openai/gpt-oss-20b"
         )
     else:
         if os.getenv("TRADINGAGENTS_DEEP_MODEL"):
