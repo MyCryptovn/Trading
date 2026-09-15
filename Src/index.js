@@ -10,6 +10,8 @@ import { decideTrade } from "./TradeDecisionGate.js";
 import { createStatisticalJournal } from "./StatisticalJournal.js";
 import { estimateStatisticalEdge, walkForwardValidate } from "./StatisticalEdgeEngine.js";
 import { createPipelineReliability } from "./PipelineReliability.js";
+import { createTradingAgentsAdapter } from "./TradingAgentsAdapter.js";
+import { createSignalFusion } from "./SignalFusion.js";
 import { actionToDirection, normalizeAction } from "./SignalContract.js";
 import {
   createPaperTrader,
@@ -24,6 +26,8 @@ const state = createPaperTrader(config.startBalance);
 const scanner = createMarketScanner();
 const dataQuality = createMarketDataQualityGate();
 const risk = createRiskEngine();
+const tradingAgents = createTradingAgentsAdapter();
+const signalFusion = createSignalFusion();
 const reliability = createPipelineReliability({
   timeoutMs: config.pipelineTimeoutMs,
   retries: config.pipelineRetries,
@@ -54,6 +58,8 @@ let latestWalkForward = null;
 let latestTicker = null;
 let latestScan = null;
 let latestScanAt = 0;
+let latestResearch = null;
+let latestFusedSignal = null;
 let tickInFlight = false;
 
 function dailyPnlPct(price) {
@@ -188,6 +194,51 @@ async function updateStatistics(price, timestamp) {
   return { edge: latestStatisticalEdge, walkForward: latestWalkForward };
 }
 
+async function updateTradingAgents(price, marketTicker, scan, signal, now) {
+  if (!marketTicker || !Number.isFinite(Number(marketTicker.price))) {
+    latestResearch = { ok: false, action: "UNKNOWN", confidence: null, reason: "NO_FRESH_MARKET_TICKER" };
+    latestFusedSignal = signalFusion.fuse({
+      quant: signal,
+      flow: signalCapitalFlow(),
+      research: latestResearch
+    });
+    return latestResearch;
+  }
+
+  latestResearch = await tradingAgents.analyze({
+    nowMs: now,
+    snapshot: {
+      symbol: config.asset,
+      price: Number(marketTicker.price),
+      bid: Number(marketTicker.bid),
+      ask: Number(marketTicker.ask),
+      spreadPct: scan?.spreadPct ?? marketTicker.spreadPct ?? null,
+      volume24h: Number(marketTicker.volume24h),
+      change24hPct: Number(marketTicker.change24hPct),
+      timestamp: marketTicker.timestamp
+    },
+    context: {
+      quantSignal: signal?.action || "HOLD",
+      capitalFlow: signalCapitalFlow()?.action || "HOLD",
+      price
+    }
+  });
+
+  latestFusedSignal = signalFusion.fuse({
+    quant: signal,
+    flow: signalCapitalFlow(),
+    research: latestResearch
+  });
+
+  if (latestResearch.ok) {
+    log(`TRADINGAGENTS ${latestResearch.action} | confidence ${Math.round(latestResearch.confidence * 100)}%`);
+  } else if (latestResearch.reason !== "TRADINGAGENTS_NOT_CONFIGURED") {
+    log(`TRADINGAGENTS HOLD/UNKNOWN | ${latestResearch.reason}`);
+  }
+
+  return latestResearch;
+}
+
 async function tick() {
   if (tickInFlight) {
     log("TICK SKIPPED: previous tick still running");
@@ -222,6 +273,7 @@ async function tick() {
     });
 
     await updateStatistics(price, now);
+    await updateTradingAgents(price, marketTicker, scan, signal, now);
 
     const evidence = buildTradeEvidence({
       scan,
@@ -264,6 +316,8 @@ async function tick() {
       evidence,
       risk: riskResult,
       signal,
+      fusedSignal: latestFusedSignal,
+      research: latestResearch,
       scan,
       dexFlow: latestDexFlow
     });
@@ -291,6 +345,7 @@ async function start() {
   if (config.dexNetwork && config.dexPoolAddress && !dexFlow.enabled) {
     log("DEX flow monitor: HOLD until DEX_ASSET matches ASSET");
   }
+  log("TradingAgents: research-only integration (execution disabled)");
   log("Trade decision: fail-closed TradeDecisionGate");
   log("BUY requires explicit token safety + empirical statistical edge");
   log("Out-of-sample validation: REQUIRED before BUY");
