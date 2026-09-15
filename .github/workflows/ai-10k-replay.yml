@@ -1,0 +1,73 @@
+name: AI 10K Paper Replay
+
+on:
+  workflow_dispatch:
+    inputs:
+      groq_max:
+        description: "Top candidates sent to Groq FAST"
+        required: true
+        default: "8"
+        type: string
+      gemini_max:
+        description: "Top Groq results sent to Gemini DEEP"
+        required: true
+        default: "4"
+        type: string
+      concurrency:
+        description: "Maximum concurrent AI processes"
+        required: true
+        default: "2"
+        type: string
+
+jobs:
+  ai-10k-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      TRADINGAGENTS_ENABLED: "1"
+      TRADINGAGENTS_PYTHON: "python3"
+      TRADINGAGENTS_RUNNER_SCRIPT: "Python/tradingagents_runner.py"
+      TRADINGAGENTS_TIMEOUT_MS: "300000"
+      REPLAY_GROQ_MAX: ${{ inputs.groq_max }}
+      REPLAY_GEMINI_MAX: ${{ inputs.gemini_max }}
+      REPLAY_AI_CONCURRENCY: ${{ inputs.concurrency }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check AI secrets
+        shell: bash
+        run: |
+          test -n "$GROQ_API_KEY" || { echo "GROQ_API_KEY secret is missing"; exit 1; }
+          test -n "$GEMINI_API_KEY" || { echo "GEMINI_API_KEY secret is missing"; exit 1; }
+
+      - name: Install dependencies
+        run: |
+          npm install
+          python3 -m pip install -r Python/requirements.txt
+
+      - name: Static and unit safety checks
+        run: |
+          node --check Src/run-10k-ai-replay.js
+          node --check Src/MultiCoinCandidateEngine.js
+          node Src/MultiCoinCandidateEngine.test.js
+          node Src/MultiCoinCandidateEngine.benchmark.test.js
+          node Src/AIResearchRouter.test.js
+          node Src/TradingAgentsAdapter.test.js
+
+      - name: Run 10K Groq FAST to Gemini DEEP paper replay
+        run: node Src/run-10k-ai-replay.js
