@@ -21,6 +21,12 @@ jobs:
       - name: Check Node
         run: node --version
 
+      - name: Check Python bridge
+        run: |
+          python3 --version
+          python3 -m py_compile Python/tradingagents_runner.py
+          test -f Python/requirements.txt
+
       - name: Install
         run: npm install
 
