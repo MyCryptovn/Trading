@@ -12,6 +12,7 @@ import { estimateStatisticalEdge, walkForwardValidate } from "./StatisticalEdgeE
 import { createPipelineReliability } from "./PipelineReliability.js";
 import { createTradingAgentsAdapter } from "./TradingAgentsAdapter.js";
 import { createSignalFusion } from "./SignalFusion.js";
+import { createMultiCoinCandidateEngine } from "./MultiCoinCandidateEngine.js";
 import { actionToDirection, normalizeAction } from "./SignalContract.js";
 import {
   createPaperTrader,
@@ -28,6 +29,8 @@ const dataQuality = createMarketDataQualityGate();
 const risk = createRiskEngine();
 const tradingAgents = createTradingAgentsAdapter();
 const signalFusion = createSignalFusion();
+const multiCoinCandidates = createMultiCoinCandidateEngine({ maxCandidates: 20 });
+const marketUniverse = new Map();
 const reliability = createPipelineReliability({
   timeoutMs: config.pipelineTimeoutMs,
   retries: config.pipelineRetries,
@@ -60,6 +63,7 @@ let latestScan = null;
 let latestScanAt = 0;
 let latestResearch = null;
 let latestFusedSignal = null;
+let latestCandidates = null;
 let tickInFlight = false;
 
 function dailyPnlPct(price) {
@@ -89,35 +93,25 @@ function showStatus(price, action) {
   log(`${config.asset} | $${price.toFixed(2)} | ${action} | Paper equity: $${equity.toFixed(2)} | PnL: ${dailyPnlPct(price).toFixed(2)}%`);
 }
 
-async function refreshDexFlow() {
-  if (!dexFlow.enabled) {
-    latestDexFlow = null;
-    return null;
-  }
-
-  const result = await reliability.run("dex-flow", () => dexFlow.evaluate());
-  latestDexFlow = result;
-
-  if (!result.ok) {
-    dashboard.pushActivity(`DEX flow HOLD: ${result.reason}`, "risk");
-    log(`DEX FLOW HOLD ${result.reason}`);
-    return result;
-  }
-
-  log(`DEX FLOW ${normalizeAction(result.action)} | confidence ${result.confidence}% | ${result.reason}`);
-  return result;
+function refreshMultiCoinCandidates(now = Date.now()) {
+  latestCandidates = multiCoinCandidates.rank([...marketUniverse.values()], now);
+  return latestCandidates;
 }
 
-function signalCapitalFlow() {
-  if (!dexFlow.enabled) return null;
-  if (!latestDexFlow?.ok || !latestDexFlow.flow) {
-    return { action: "HOLD", confidence: 0 };
-  }
+function updateUniverse(ticker) {
+  if (!ticker?.productId) return null;
+  marketUniverse.set(ticker.productId, ticker);
+  return refreshMultiCoinCandidates(Date.now());
+}
 
-  return {
-    ...latestDexFlow.flow,
-    action: normalizeAction(latestDexFlow.flow.action)
-  };
+function riskCheck(netEdgePct, price) {
+  const equity = getEquity(state, price);
+  return risk.evaluate({
+    action: "BUY",
+    equityUsd: equity,
+    netEdgePct,
+    dailyPnlPct: dailyPnlPct(price)
+  });
 }
 
 function buildStatisticalContext() {
@@ -251,6 +245,8 @@ async function tick() {
     await refreshDexFlow();
 
     const now = Date.now();
+    refreshMultiCoinCandidates(now);
+
     const marketTicker = latestTicker?.productId === `${config.asset}-USD`
       ? latestTicker
       : null;
@@ -319,7 +315,8 @@ async function tick() {
       fusedSignal: latestFusedSignal,
       research: latestResearch,
       scan,
-      dexFlow: latestDexFlow
+      dexFlow: latestDexFlow,
+      multiCoinCandidates: latestCandidates
     });
   } finally {
     tickInFlight = false;
@@ -340,6 +337,7 @@ async function start() {
   log(`Starting balance: $${config.startBalance}`);
   log("Market feed: Coinbase WebSocket");
   log("Market scanner: multi-coin fast-move detection");
+  log("Multi-coin triage: cheap broad-universe ranking before expensive AI");
   log("Signal engine: spread + liquidity + movement filter");
   log(`DEX flow monitor: ${dexFlow.enabled ? "ENABLED" : "DISABLED"}`);
   if (config.dexNetwork && config.dexPoolAddress && !dexFlow.enabled) {
@@ -377,6 +375,7 @@ async function start() {
       }
 
       latestTicker = ticker;
+      const universe = updateUniverse(ticker);
       const feedScan = scanner.update(ticker);
       latestScan = feedScan;
       latestScanAt = Date.now();
@@ -388,7 +387,7 @@ async function start() {
         capitalFlow: signalCapitalFlow()
       });
 
-      dashboard.update({ ticker, signal: feedSignal, scan: feedScan, dexFlow: latestDexFlow });
+      dashboard.update({ ticker, signal: feedSignal, scan: feedScan, dexFlow: latestDexFlow, multiCoinCandidates: universe });
 
       log(
         `TICKER ${ticker.productId} | $${ticker.price.toFixed(6)} | ` +
