@@ -87,6 +87,18 @@ const snapshot = {
 
 {
   const adapter = createTradingAgentsAdapter({
+    runner: async () => ({ decision: "BUY" })
+  });
+  const result = await adapter.analyze({ snapshot, nowMs: now });
+  assert.equal(result.ok, true);
+  assert.equal(result.action, "BUY");
+  assert.equal(result.confidence, 0);
+  assert.equal(result.confidenceCalibrated, false);
+  assert.equal(result.reason, "TRADINGAGENTS_UNCALIBRATED_DECISION");
+}
+
+{
+  const adapter = createTradingAgentsAdapter({
     runner: async () => {
       throw new Error("runner offline");
     }
