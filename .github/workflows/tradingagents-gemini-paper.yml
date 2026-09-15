@@ -1,0 +1,44 @@
+name: TradingAgents Gemini Paper Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  gemini-paper-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      TRADINGAGENTS_LLM_PROVIDER: google
+      TRADINGAGENTS_DEEP_MODEL: gemini-3.5-flash
+      TRADINGAGENTS_QUICK_MODEL: gemini-3.5-flash
+      TRADINGAGENTS_MAX_DEBATE_ROUNDS: 1
+      TRADINGAGENTS_MAX_RISK_ROUNDS: 1
+      TRADINGAGENTS_GOOGLE_THINKING_LEVEL: minimal
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check Gemini secret
+        run: |
+          test -n "$GEMINI_API_KEY"
+          echo "Gemini secret is configured"
+
+      - name: Install TradingAgents
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r Python/requirements.txt
+
+      - name: Run one BTC paper analysis
+        run: |
+          printf '%s\n' '{"symbol":"BTC","asOf":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"}' | python Python/tradingagents_runner.py
+
+      - name: Safety check
+        run: |
+          echo "Paper test only: no wallet, signing, or execution is exposed by the runner."
