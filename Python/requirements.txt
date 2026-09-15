@@ -1,0 +1,3 @@
+# TradingAgents runtime pinned to the validated v0.4.0 release.
+# Install with: python -m pip install -r Python/requirements.txt
+tradingagents @ git+https://github.com/TauricResearch/TradingAgents.git@v0.4.0
