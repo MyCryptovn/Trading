@@ -3,20 +3,24 @@ import { createPaperLiveResearchEngine } from "./PaperLiveResearchEngine.js";
 
 let active = 0;
 let peak = 0;
+let feedStopCalled = false;
 
-const qualityGate = {
-  validate: ticker => ({ ok: Boolean(ticker?.productId) })
-};
+const now = Date.now();
+const tickers = Array.from({ length: 12 }, (_, i) => ({
+  productId: `COIN${i}-USD`,
+  price: 100 + i,
+  bid: 99 + i,
+  ask: 101 + i,
+  volume24h: 100000 + i,
+  change24hPct: i,
+  timestamp: new Date(now).toISOString()
+}));
 
-const candidateEngine = {
-  rank: records => ({
-    candidates: records.slice(0, 4),
-    universeSize: records.length
-  })
-};
+const qualityGate = { validate: ticker => ({ ok: Boolean(ticker?.productId) }) };
+const candidateEngine = { rank: records => ({ candidates: records.slice(0, 4), universeSize: records.length }) };
 
 const researchPipeline = {
-  latest: { reason: "TEST" },
+  latest: { reason: "NOT_RUN" },
   async research(candidates, analyze) {
     const results = [];
     for (const candidate of candidates) {
@@ -28,27 +32,38 @@ const researchPipeline = {
     this.latest = { reason: "AI_RESEARCH_COMPLETE", results };
     return { skipped: false, selected: candidates.length, results };
   },
-  getLatest() {
-    return this.latest;
-  }
+  getLatest() { return this.latest; }
+};
+
+const feedFactory = ({ onTicker }) => {
+  for (const ticker of tickers) onTicker(ticker);
+  return () => { feedStopCalled = true; };
 };
 
 const engine = createPaperLiveResearchEngine({
-  durationMs: 20,
+  durationMs: 10,
   qualityGate,
   candidateEngine,
-  researchPipeline
+  researchPipeline,
+  feedFactory
 });
 
-// The production feed is injected so CI remains deterministic and does not
-// require network access or API keys. The engine itself remains paper-only.
-const originalRun = engine.run;
-assert.equal(typeof originalRun, "function");
+const result = await engine.run({
+  analyze: async candidate => ({ ok: true, productId: candidate.productId, action: "HOLD", confidence: 0.5 })
+});
+
+assert.equal(result.universeSize, 12);
+assert.equal(result.ticks, 12);
+assert.equal(result.researchRuns, 1);
+assert.equal(result.researchSelected, 4);
+assert.equal(result.actions.HOLD, 4);
+assert.equal(result.errors, 0);
+assert.equal(feedStopCalled, true);
+assert.equal(peak, 1);
 
 assert.throws(
   () => createPaperLiveResearchEngine({}).run({ durationMs: 1 }),
   /analyze must be a function/
 );
 
-assert.ok(peak <= 1);
 console.log("Paper live research engine test passed");
