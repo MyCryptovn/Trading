@@ -22,7 +22,6 @@ def configure_provider(config):
     gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
     if gemini_key:
-        # TradingAgents expects Google's standard environment variable.
         os.environ.setdefault("GOOGLE_API_KEY", gemini_key)
         provider = provider or "google"
 
@@ -42,6 +41,18 @@ def configure_provider(config):
             config["quick_think_llm"] = os.environ["TRADINGAGENTS_QUICK_MODEL"]
 
     return config
+
+
+def normalize_crypto_symbol(symbol):
+    """TradingAgents expects exchange-suffixed crypto symbols such as BTC-USD."""
+    normalized = str(symbol or "").strip().upper()
+    if not normalized:
+        return ""
+    if normalized.endswith("-USD"):
+        return normalized
+    if "-" not in normalized:
+        return f"{normalized}-USD"
+    return normalized
 
 
 def main():
@@ -70,7 +81,8 @@ def main():
 
         graph = TradingAgentsGraph(debug=False, config=config)
         trade_date = datetime.fromisoformat(as_of.replace("Z", "+00:00")).date().isoformat()
-        final_state, decision = graph.propagate(symbol, trade_date, asset_type="crypto")
+        ticker = normalize_crypto_symbol(symbol)
+        final_state, decision = graph.propagate(ticker, trade_date, asset_type="crypto")
 
         normalized = str(decision or "REVIEW").strip().upper()
         if normalized not in {"BUY", "OVERWEIGHT", "HOLD", "UNDERWEIGHT", "SELL", "REVIEW"}:
@@ -83,6 +95,7 @@ def main():
             "source": "TradingAgents-v0.4.0",
             "provider": config.get("llm_provider"),
             "model": config.get("deep_think_llm"),
+            "ticker": ticker,
             "hasFinalState": bool(final_state),
         })
         return 0
