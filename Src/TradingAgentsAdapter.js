@@ -1,4 +1,8 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { normalizeAction } from "./SignalContract.js";
+
+const execFileAsync = promisify(execFile);
 
 const DECISION_MAP = new Map([
   ["BUY", "BUY"],
@@ -31,6 +35,37 @@ function stale(timestamp, nowMs, maxAgeMs, maxFutureMs) {
   return parsed > nowMs + maxFutureMs || nowMs - parsed > maxAgeMs;
 }
 
+export function createTradingAgentsProcessRunner(options = {}) {
+  const python = String(options.python || process.env.TRADINGAGENTS_PYTHON || "python3");
+  const script = String(options.script || process.env.TRADINGAGENTS_RUNNER_SCRIPT || "Python/tradingagents_runner.py");
+  const timeoutMs = Number(options.timeoutMs ?? process.env.TRADINGAGENTS_TIMEOUT_MS ?? 120000);
+
+  if (!python) throw new TypeError("python must be configured");
+  if (!script) throw new TypeError("script must be configured");
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new TypeError("timeoutMs must be a positive number");
+  }
+
+  return async payload => {
+    const { stdout } = await execFileAsync(python, [script], {
+      input: JSON.stringify(payload),
+      timeout: timeoutMs,
+      maxBuffer: 2 * 1024 * 1024,
+      windowsHide: true,
+      env: process.env
+    });
+
+    const text = String(stdout || "").trim();
+    if (!text) throw new Error("TRADINGAGENTS_EMPTY_OUTPUT");
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error("TRADINGAGENTS_INVALID_JSON");
+    }
+  };
+}
+
 export function createTradingAgentsAdapter(options = {}) {
   const maxAgeMs = Number(options.maxAgeMs ?? 120000);
   const maxFutureMs = Number(options.maxFutureMs ?? 5000);
@@ -53,15 +88,12 @@ export function createTradingAgentsAdapter(options = {}) {
     if (!Number.isFinite(nowMs)) {
       return { ok: false, action: "UNKNOWN", confidence: null, reason: "INVALID_NOW" };
     }
-
     if (!snapshot.symbol || !finite(snapshot.price)) {
       return { ok: false, action: "UNKNOWN", confidence: null, reason: "INVALID_SNAPSHOT" };
     }
-
     if (stale(snapshot.timestamp, nowMs, maxAgeMs, maxFutureMs)) {
       return { ok: false, action: "UNKNOWN", confidence: null, reason: "STALE_SNAPSHOT" };
     }
-
     if (!runner) {
       return { ok: false, action: "UNKNOWN", confidence: null, reason: "TRADINGAGENTS_NOT_CONFIGURED" };
     }
@@ -90,7 +122,6 @@ export function createTradingAgentsAdapter(options = {}) {
     if (!["BUY", "SELL", "HOLD"].includes(action)) {
       return { ok: false, action: "UNKNOWN", confidence, reason: "INVALID_DECISION" };
     }
-
     if (confidence === null) {
       return { ok: false, action: "UNKNOWN", confidence: null, reason: "INVALID_CONFIDENCE" };
     }
