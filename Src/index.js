@@ -104,16 +104,6 @@ function updateUniverse(ticker) {
   return refreshMultiCoinCandidates(Date.now());
 }
 
-function riskCheck(netEdgePct, price) {
-  const equity = getEquity(state, price);
-  return risk.evaluate({
-    action: "BUY",
-    equityUsd: equity,
-    netEdgePct,
-    dailyPnlPct: dailyPnlPct(price)
-  });
-}
-
 function buildStatisticalContext() {
   const action = normalizeAction(signalCapitalFlow()?.action);
   const direction = actionToDirection(action);
