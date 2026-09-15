@@ -31,6 +31,10 @@ jobs:
           test -f Src/FastCandidatePipeline.test.js
           test -f Src/SignalEngine.js
           test -f Src/SignalEngine.test.js
+          test -f Src/SignalFusion.js
+          test -f Src/SignalFusion.test.js
+          test -f Src/MarketRegimeEngine.js
+          test -f Src/MarketRegimeEngine.test.js
           test -f Src/DataQualityGate.js
           test -f Src/DataQualityGate.test.js
 
@@ -41,6 +45,10 @@ jobs:
           node --check Src/FastCandidatePipeline.test.js
           node --check Src/SignalEngine.js
           node --check Src/SignalEngine.test.js
+          node --check Src/SignalFusion.js
+          node --check Src/SignalFusion.test.js
+          node --check Src/MarketRegimeEngine.js
+          node --check Src/MarketRegimeEngine.test.js
           node --check Src/DataQualityGate.js
           node --check Src/DataQualityGate.test.js
 
@@ -73,6 +81,12 @@ jobs:
 
       - name: Signal Engine Unit Test
         run: node Src/SignalEngine.test.js
+
+      - name: Signal Fusion Unit Test
+        run: node Src/SignalFusion.test.js
+
+      - name: Market Regime Unit Test
+        run: node Src/MarketRegimeEngine.test.js
 
       - name: Trade Decision Gate Unit Test
         run: node Src/TradeDecisionGate.test.js
