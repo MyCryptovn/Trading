@@ -40,6 +40,8 @@ jobs:
           test -f Src/AIResearchRouter.test.js
           test -f Src/MultiCoinResearchPipeline.js
           test -f Src/MultiCoinResearchPipeline.test.js
+          test -f Src/PaperLiveResearchEngine.js
+          test -f Src/PaperLiveResearchEngine.test.js
           test -f Src/FastCandidatePipeline.js
           test -f Src/FastCandidatePipeline.test.js
           test -f Src/SignalEngine.js
@@ -67,6 +69,8 @@ jobs:
           node --check Src/AIResearchRouter.test.js
           node --check Src/MultiCoinResearchPipeline.js
           node --check Src/MultiCoinResearchPipeline.test.js
+          node --check Src/PaperLiveResearchEngine.js
+          node --check Src/PaperLiveResearchEngine.test.js
           node --check Src/FastCandidatePipeline.js
           node --check Src/FastCandidatePipeline.test.js
           node --check Src/SignalEngine.js
@@ -86,78 +90,55 @@ jobs:
 
       - name: Token Safety Unit Test
         run: node Src/TokenSafetyScanner.test.js
-
       - name: Capital Flow Unit Test
         run: node Src/CapitalFlowScanner.test.js
-
       - name: On-chain Adapter Unit Test
         run: node Src/OnchainDataAdapter.test.js
-
       - name: On-chain Flow Integration Test
         run: node Src/OnchainFlowIntegration.test.js
-
       - name: GeckoTerminal Adapter Unit Test
         run: node Src/GeckoTerminalDataAdapter.test.js
-
       - name: DEX Flow Monitor Unit Test
         run: node Src/DexFlowMonitor.test.js
-
       - name: Fast Candidate Scorer Unit Test
         run: node Src/FastCandidateScorer.test.js
-
       - name: Fast Discovery Engine Unit Test
         run: node Src/FastDiscoveryEngine.test.js
-
       - name: Multi-Coin Candidate Engine Unit Test
         run: node Src/MultiCoinCandidateEngine.test.js
-
       - name: Multi-Coin 10k Benchmark
         run: node Src/MultiCoinCandidateEngine.benchmark.test.js
-
       - name: AI Research Router Unit Test
         run: node Src/AIResearchRouter.test.js
-
       - name: Multi-Coin Research Pipeline Unit Test
         run: node Src/MultiCoinResearchPipeline.test.js
-
+      - name: Paper Live Research Engine Unit Test
+        run: node Src/PaperLiveResearchEngine.test.js
       - name: Fast Candidate Pipeline Unit Test
         run: node Src/FastCandidatePipeline.test.js
-
       - name: Signal Engine Unit Test
         run: node Src/SignalEngine.test.js
-
       - name: Signal Fusion Unit Test
         run: node Src/SignalFusion.test.js
-
       - name: Market Regime Unit Test
         run: node Src/MarketRegimeEngine.test.js
-
       - name: Decision Memory Unit Test
         run: node Src/DecisionMemory.test.js
-
       - name: Agent Performance Unit Test
         run: node Src/AgentPerformance.test.js
-
       - name: TradingAgents Adapter Unit Test
         run: node Src/TradingAgentsAdapter.test.js
-
       - name: Trade Decision Gate Unit Test
         run: node Src/TradeDecisionGate.test.js
-
       - name: Statistical Journal Unit Test
         run: node Src/StatisticalJournal.test.js
-
       - name: Statistical Edge Engine Unit Test
         run: node Src/StatisticalEdgeEngine.test.js
-
       - name: Market Data Quality Gate Unit Test
         run: node Src/DataQualityGate.test.js
-
       - name: Dashboard Smoke Test
         run: RUN_ONCE=1 node Src/index.js
-
       - name: Paper Bot Smoke Test
         run: RUN_ONCE=1 BOT_MODE=paper node Src/index.js
-
       - name: Test completed
         run: echo "All DEX bot paper tests completed successfully"
