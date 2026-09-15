@@ -61,7 +61,7 @@ assert.equal(result.errors, 0);
 assert.equal(feedStopCalled, true);
 assert.equal(peak, 1);
 
-assert.throws(
+await assert.rejects(
   () => createPaperLiveResearchEngine({}).run({ durationMs: 1 }),
   /analyze must be a function/
 );
