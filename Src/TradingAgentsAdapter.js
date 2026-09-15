@@ -122,14 +122,28 @@ export function createTradingAgentsAdapter(options = {}) {
     if (!["BUY", "SELL", "HOLD"].includes(action)) {
       return { ok: false, action: "UNKNOWN", confidence, reason: "INVALID_DECISION" };
     }
+
+    // TradingAgents v0.4.0 exposes a five-tier rating, not a calibrated
+    // probability. Preserve the validated action for observation, but give
+    // it zero fusion weight until an empirical confidence calibration exists.
     if (confidence === null) {
-      return { ok: false, action: "UNKNOWN", confidence: null, reason: "INVALID_CONFIDENCE" };
+      return {
+        ok: true,
+        action,
+        confidence: 0,
+        confidenceCalibrated: false,
+        reason: "TRADINGAGENTS_UNCALIBRATED_DECISION",
+        source: "tradingagents",
+        timestamp: new Date(nowMs).toISOString(),
+        raw: raw && typeof raw === "object" ? { ...raw } : raw
+      };
     }
 
     return {
       ok: true,
       action,
       confidence,
+      confidenceCalibrated: true,
       reason: "TRADINGAGENTS_RESEARCH_COMPLETE",
       source: "tradingagents",
       timestamp: new Date(nowMs).toISOString(),
