@@ -23,11 +23,7 @@ export function createFastCandidatePipeline(options = {}) {
 
   function evaluate(records = [], nowMs = Date.now()) {
     if (!Array.isArray(records) || !finite(nowMs)) {
-      return {
-        candidates: [],
-        rejected: 0,
-        reasons: ["INVALID_CANDIDATE_INPUT"]
-      };
+      return { candidates: [], rejected: 0, discovered: 0, reasons: ["INVALID_CANDIDATE_INPUT"] };
     }
 
     const discovered = discovery.discover(records, Number(nowMs));
@@ -48,14 +44,18 @@ export function createFastCandidatePipeline(options = {}) {
         nowMs: Number(nowMs)
       }, cfg);
 
-      if (score.gates && Object.values(score.gates).every(Boolean)) {
+      const gates = score.gates || {};
+      const allHardGatesPassed = ["safety", "liquidity", "freshness", "spread", "flow", "momentum"]
+        .every(key => gates[key] === true);
+
+      if (allHardGatesPassed) {
         candidates.push({
           ...candidate,
           score: score.score,
           scoreAction: score.action,
           scoreReasons: score.reasons,
           scoreComponents: score.components,
-          gates: score.gates
+          gates
         });
       } else {
         rejected += 1;
