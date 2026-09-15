@@ -35,6 +35,10 @@ jobs:
           test -f Src/SignalFusion.test.js
           test -f Src/MarketRegimeEngine.js
           test -f Src/MarketRegimeEngine.test.js
+          test -f Src/DecisionMemory.js
+          test -f Src/DecisionMemory.test.js
+          test -f Src/AgentPerformance.js
+          test -f Src/AgentPerformance.test.js
           test -f Src/DataQualityGate.js
           test -f Src/DataQualityGate.test.js
 
@@ -49,6 +53,10 @@ jobs:
           node --check Src/SignalFusion.test.js
           node --check Src/MarketRegimeEngine.js
           node --check Src/MarketRegimeEngine.test.js
+          node --check Src/DecisionMemory.js
+          node --check Src/DecisionMemory.test.js
+          node --check Src/AgentPerformance.js
+          node --check Src/AgentPerformance.test.js
           node --check Src/DataQualityGate.js
           node --check Src/DataQualityGate.test.js
 
@@ -87,6 +95,12 @@ jobs:
 
       - name: Market Regime Unit Test
         run: node Src/MarketRegimeEngine.test.js
+
+      - name: Decision Memory Unit Test
+        run: node Src/DecisionMemory.test.js
+
+      - name: Agent Performance Unit Test
+        run: node Src/AgentPerformance.test.js
 
       - name: Trade Decision Gate Unit Test
         run: node Src/TradeDecisionGate.test.js
