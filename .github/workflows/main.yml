@@ -41,6 +41,8 @@ jobs:
           test -f Src/AgentPerformance.test.js
           test -f Src/DataQualityGate.js
           test -f Src/DataQualityGate.test.js
+          test -f Src/TradingAgentsAdapter.js
+          test -f Src/TradingAgentsAdapter.test.js
 
       - name: Syntax Check
         run: |
@@ -59,6 +61,8 @@ jobs:
           node --check Src/AgentPerformance.test.js
           node --check Src/DataQualityGate.js
           node --check Src/DataQualityGate.test.js
+          node --check Src/TradingAgentsAdapter.js
+          node --check Src/TradingAgentsAdapter.test.js
 
       - name: Token Safety Unit Test
         run: node Src/TokenSafetyScanner.test.js
@@ -101,6 +105,9 @@ jobs:
 
       - name: Agent Performance Unit Test
         run: node Src/AgentPerformance.test.js
+
+      - name: TradingAgents Adapter Unit Test
+        run: node Src/TradingAgentsAdapter.test.js
 
       - name: Trade Decision Gate Unit Test
         run: node Src/TradeDecisionGate.test.js
