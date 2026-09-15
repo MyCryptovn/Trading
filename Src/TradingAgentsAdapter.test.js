@@ -9,11 +9,18 @@ const snapshot = {
 };
 
 {
-  const adapter = createTradingAgentsAdapter();
-  const result = await adapter.analyze({ snapshot, nowMs: now });
-  assert.equal(result.ok, false);
-  assert.equal(result.reason, "TRADINGAGENTS_NOT_CONFIGURED");
-  assert.equal(result.action, "UNKNOWN");
+  const previousEnabled = process.env.TRADINGAGENTS_ENABLED;
+  delete process.env.TRADINGAGENTS_ENABLED;
+  try {
+    const adapter = createTradingAgentsAdapter();
+    const result = await adapter.analyze({ snapshot, nowMs: now });
+    assert.equal(result.ok, false);
+    assert.equal(result.reason, "TRADINGAGENTS_NOT_CONFIGURED");
+    assert.equal(result.action, "UNKNOWN");
+  } finally {
+    if (previousEnabled === undefined) delete process.env.TRADINGAGENTS_ENABLED;
+    else process.env.TRADINGAGENTS_ENABLED = previousEnabled;
+  }
 }
 
 {
