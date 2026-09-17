@@ -37,9 +37,8 @@ export function decideTrade(input = {}, options = {}) {
     return { action: "HOLD", mode: "NONE", reasons: ["STALE_OR_INVALID_DATA"] };
   }
 
-  // TradingAgents is the directional decision authority. The bot may veto
-  // that decision through deterministic safety/risk controls, but it must not
-  // silently replace an AI BUY/SELL with its own directional guess.
+  // TradingAgents is the directional decision authority. Deterministic
+  // controls can veto an AI decision, but they must not invent a direction.
   if (!hasPosition && aiDecisionAction !== "BUY") {
     if (aiDecisionAction === "SELL") {
       return { action: "HOLD", mode: "NONE", reasons: ["AI_DECISION_SELL_WITHOUT_POSITION"] };
@@ -79,11 +78,14 @@ export function decideTrade(input = {}, options = {}) {
         reasons: exitReasons.length ? exitReasons : ["POSITION_RISK_DETERIORATED"]
       };
     }
+
+    // The paper trader holds one position. A BUY from AI while already
+    // positioned is not a new entry and must not accidentally double-execute.
+    return { action: "HOLD", mode: "POSITION_HOLD", reasons: ["POSITION_ALREADY_OPEN"] };
   }
 
-  // BUY remains fail-closed: TradingAgents chooses the direction, but the
-  // deterministic bot gates still decide whether that AI decision is safe to
-  // paper-execute. No AI output can bypass these controls.
+  // BUY remains fail-closed: TradingAgents chooses the direction, while the
+  // deterministic gates decide whether that decision is safe to execute.
   if (input.safetyApproved !== true) reasons.push("SAFETY_NOT_EXPLICITLY_APPROVED");
   if (input.statisticalEdgeConfirmed !== true) reasons.push("STATISTICAL_EDGE_NOT_CONFIRMED");
   if (input.statisticalOutOfSampleValidated !== true) reasons.push("OUT_OF_SAMPLE_VALIDATION_NOT_CONFIRMED");
@@ -118,7 +120,7 @@ export function decideTrade(input = {}, options = {}) {
   return {
     action: "BUY",
     mode: opportunity ? "OPPORTUNITY" : "STANDARD",
-    reasons: [opportunity ? "AI_BUY_ALL_GATES_PASSED" : "AI_BUY_ALL_GATES_PASSED"]
+    reasons: ["AI_BUY_ALL_GATES_PASSED"]
   };
 }
 
