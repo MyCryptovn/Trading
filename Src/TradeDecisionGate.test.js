@@ -93,6 +93,15 @@ const exitUnknownFlowConfidence = decideTrade({
 assert.equal(exitUnknownFlowConfidence.action, "SELL");
 assert.equal(exitUnknownFlowConfidence.mode, "SAFETY_EXIT");
 
+const positionedBuy = decideTrade({ ...base, hasPosition: true });
+assert.equal(positionedBuy.action, "HOLD");
+assert.equal(positionedBuy.mode, "POSITION_HOLD");
+assert.deepEqual(positionedBuy.reasons, ["POSITION_ALREADY_OPEN"]);
+
+const positionedHold = decideTrade({ ...base, hasPosition: true, aiDecisionAction: "HOLD" });
+assert.equal(positionedHold.action, "HOLD");
+assert.equal(positionedHold.mode, "POSITION_HOLD");
+
 const noShort = decideTrade({
   ...base,
   hasPosition: false,
