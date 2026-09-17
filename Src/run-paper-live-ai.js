@@ -37,7 +37,13 @@ const result = await engine.run({
   })
 });
 
-console.log(JSON.stringify({
+const results = Array.isArray(result.latestResearch?.results)
+  ? result.latestResearch.results
+  : [];
+const successfulResults = results.filter(item => item?.ok === true && ["BUY", "SELL", "HOLD"].includes(String(item.action || "").toUpperCase()));
+const failedResults = results.filter(item => item?.ok !== true);
+
+const report = {
   mode: "PAPER_ONLY",
   realMoneyTrading: false,
   durationMs: result.elapsedMs,
@@ -46,7 +52,19 @@ console.log(JSON.stringify({
   universeSize: result.universeSize,
   researchRuns: result.researchRuns,
   researchSelected: result.researchSelected,
+  aiSuccessful: successfulResults.length,
+  aiFailed: failedResults.length,
   actions: result.actions,
   errors: result.errors,
   latestResearch: result.latestResearch
-}, null, 2));
+};
+
+console.log(JSON.stringify(report, null, 2));
+
+// A green run must mean the AI actually executed and returned at least one
+// valid directional decision. Zero successful AI calls is a failed validation,
+// not a successful HOLD state.
+if (result.researchRuns < 1 || result.researchSelected < 1 || successfulResults.length < 1) {
+  console.error("PAPER_AI_VALIDATION_FAILED: no successful TradingAgents decision was produced");
+  process.exitCode = 1;
+}
