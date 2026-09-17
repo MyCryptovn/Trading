@@ -36,10 +36,6 @@ def configure_provider(config):
             "TRADINGAGENTS_QUICK_MODEL", "gemini-3.5-flash"
         )
     elif provider_name == "groq":
-        # TradingAgents v0.4.0 inherits OpenAI's default quick model when a
-        # provider-specific model is not supplied. That is unsafe for Groq:
-        # Groq does not expose gpt-5.6-luna. Use current supported Groq models
-        # while preserving a fast quick-think tier and a stronger deep tier.
         config["deep_think_llm"] = os.getenv(
             "TRADINGAGENTS_DEEP_MODEL", "openai/gpt-oss-120b"
         )
@@ -56,7 +52,6 @@ def configure_provider(config):
 
 
 def normalize_crypto_symbol(symbol):
-    """TradingAgents expects exchange-suffixed crypto symbols such as BTC-USD."""
     normalized = str(symbol or "").strip().upper()
     if not normalized:
         return ""
@@ -74,7 +69,7 @@ def main():
         as_of = str(payload.get("asOf") or "").strip()
         if not symbol or not as_of:
             emit({"decision": "REVIEW", "confidence": 0, "reason": "INVALID_INPUT"})
-            return 0
+            return 2
 
         from tradingagents.graph.trading_graph import TradingAgentsGraph
         from tradingagents.default_config import DEFAULT_CONFIG
@@ -118,7 +113,7 @@ def main():
             "reason": "TRADINGAGENTS_RUNTIME_ERROR",
             "error": str(exc)[:500],
         })
-        return 0
+        return 1
 
 
 if __name__ == "__main__":
