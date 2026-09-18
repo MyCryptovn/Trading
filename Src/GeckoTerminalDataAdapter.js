@@ -149,7 +149,16 @@ export function createGeckoTerminalDataAdapter({
         };
       }
 
-      const timestamp = normalizeTimestamp(attributes.last_updated_at) ?? clock();
+      const timestamp = normalizeTimestamp(attributes.last_updated_at);
+      if (timestamp === null) {
+        return {
+          ok: false,
+          reason: "MISSING_PROVIDER_TIMESTAMP",
+          liquidityUsd,
+          data: null
+        };
+      }
+
       const ageMs = clock() - timestamp;
       if (ageMs < -30000 || ageMs > ageLimit) {
         return {
