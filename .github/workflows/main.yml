@@ -60,6 +60,8 @@ jobs:
           test -f Src/DataQualityGate.test.js
           test -f Src/GeckoTerminalDataAdapter.js
           test -f Src/GeckoTerminalDataAdapter.test.js
+          test -f Src/GoPlusTokenSecurityAdapter.js
+          test -f Src/GoPlusTokenSecurityAdapter.test.js
           test -f Src/TokenSafetyScanner.js
           test -f Src/TokenSafetyScanner.test.js
           test -f Src/TradingAgentsAdapter.js
@@ -94,11 +96,15 @@ jobs:
           node --check Src/DataQualityGate.js
           node --check Src/GeckoTerminalDataAdapter.js
           node --check Src/GeckoTerminalDataAdapter.test.js
+          node --check Src/GoPlusTokenSecurityAdapter.js
+          node --check Src/GoPlusTokenSecurityAdapter.test.js
           node --check Src/TokenSafetyScanner.js
           node --check Src/TokenSafetyScanner.test.js
           node --check Src/TradingAgentsAdapter.js
           node --check Src/TradingAgentsAdapter.test.js
 
+      - name: GoPlus Token Security Adapter Unit Test
+        run: node Src/GoPlusTokenSecurityAdapter.test.js
       - name: Token Safety Unit Test
         run: node Src/TokenSafetyScanner.test.js
       - name: Capital Flow Unit Test
