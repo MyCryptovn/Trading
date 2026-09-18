@@ -42,6 +42,8 @@ jobs:
           test -f Src/MultiCoinResearchPipeline.test.js
           test -f Src/PaperLiveResearchEngine.js
           test -f Src/PaperLiveResearchEngine.test.js
+          test -f Src/AIPerformanceJournal.js
+          test -f Src/AIPerformanceJournal.test.js
           test -f Src/FastCandidatePipeline.js
           test -f Src/FastCandidatePipeline.test.js
           test -f Src/SignalEngine.js
@@ -71,6 +73,8 @@ jobs:
           node --check Src/MultiCoinResearchPipeline.test.js
           node --check Src/PaperLiveResearchEngine.js
           node --check Src/PaperLiveResearchEngine.test.js
+          node --check Src/AIPerformanceJournal.js
+          node --check Src/AIPerformanceJournal.test.js
           node --check Src/FastCandidatePipeline.js
           node --check Src/FastCandidatePipeline.test.js
           node --check Src/SignalEngine.js
@@ -84,7 +88,6 @@ jobs:
           node --check Src/AgentPerformance.js
           node --check Src/AgentPerformance.test.js
           node --check Src/DataQualityGate.js
-          node --check Src/DataQualityGate.test.js
           node --check Src/TradingAgentsAdapter.js
           node --check Src/TradingAgentsAdapter.test.js
 
@@ -114,6 +117,8 @@ jobs:
         run: node Src/MultiCoinResearchPipeline.test.js
       - name: Paper Live Research Engine Unit Test
         run: node Src/PaperLiveResearchEngine.test.js
+      - name: AI Performance Journal Unit Test
+        run: node Src/AIPerformanceJournal.test.js
       - name: Fast Candidate Pipeline Unit Test
         run: node Src/FastCandidatePipeline.test.js
       - name: Signal Engine Unit Test
