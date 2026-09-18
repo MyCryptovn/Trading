@@ -97,5 +97,7 @@ export const config = {
   dexAsset: process.env.DEX_ASSET || "",
   dexTokenAddress: process.env.DEX_TOKEN_ADDRESS || "",
   dexChainId: process.env.DEX_CHAIN_ID || "",
-  goPlusAccessToken: process.env.GOPLUS_ACCESS_TOKEN || ""
+  goPlusAccessToken: process.env.GOPLUS_ACCESS_TOKEN || "",
+  ethereumRpcUrl: process.env.ETHEREUM_RPC_URL || "",
+  ethereumRpcTimeoutMs: Math.max(1000, numberEnv("ETHEREUM_RPC_TIMEOUT_MS", 10000))
 };
