@@ -22,6 +22,7 @@ await journal.record({
   price: 101,
   equityUsd: 1010,
   action: "BUY",
+  executionAction: "BUY",
   hasPosition: true,
   decisionMode: "STANDARD",
   evidence: { score: 90, safetyScore: 85, netEdgePct: 1.2, flowConfidence: 80, statisticalExpectedValuePct: 1.2, statisticalSampleSize: 60 }
@@ -38,12 +39,13 @@ await journal.record({
   price: 98,
   equityUsd: 980,
   action: "SELL",
+  executionAction: "SELL",
   hasPosition: false
 });
 
 const summary = journal.summary();
 if (summary.ticks !== 3) throw new Error(`Expected capped ticks=3, got ${summary.ticks}`);
-if (summary.buys !== 1 || summary.sells !== 1) throw new Error("Expected one BUY and one SELL");
+if (summary.buys !== 1 || summary.sells !== 1 || summary.executedBuys !== 1 || summary.executedSells !== 1) throw new Error("Expected one BUY and one SELL");
 if (summary.maxDrawdownPct >= 0) throw new Error("Expected a negative drawdown after the equity decline");
 if (summary.totalReturnPct !== -2) throw new Error(`Expected -2% return, got ${summary.totalReturnPct}`);
 
