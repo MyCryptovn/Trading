@@ -1,6 +1,7 @@
 name: DEX Bot Paper Test
 
 on:
+  workflow_dispatch:
   push:
     branches: [ main ]
   pull_request:
