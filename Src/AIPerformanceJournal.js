@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 const DEFAULTS = Object.freeze({
   horizonMs: 15 * 60 * 1000,
   maxSamples: 5000,
+  roundTripCostPct: 0.80,
   storagePath: "data/ai-performance-journal.jsonl"
 });
 
@@ -59,6 +60,7 @@ export function createAIPerformanceJournal(options = {}) {
   const cfg = { ...DEFAULTS, ...options };
   if (!finite(cfg.horizonMs) || Number(cfg.horizonMs) <= 0) throw new TypeError("horizonMs must be > 0");
   if (!finite(cfg.maxSamples) || Number(cfg.maxSamples) < 1) throw new TypeError("maxSamples must be >= 1");
+  if (!finite(cfg.roundTripCostPct) || Number(cfg.roundTripCostPct) < 0) throw new TypeError("roundTripCostPct must be >= 0");
 
   const storagePath = options.storagePath === null ? null : String(options.storagePath ?? DEFAULTS.storagePath);
   const pending = new Map();
@@ -144,7 +146,7 @@ export function createAIPerformanceJournal(options = {}) {
         exitPrice: price,
         forwardReturnPct,
         directionalReturnPct,
-        roundTripCostPct: 0.8
+        roundTripCostPct: Number(cfg.roundTripCostPct)
       });
       if (!sample) continue;
 
@@ -201,7 +203,7 @@ export function createAIPerformanceJournal(options = {}) {
     getSamples,
     getPending,
     summary,
-    limits: { horizonMs: Number(cfg.horizonMs), maxSamples: Number(cfg.maxSamples), storagePath }
+    limits: { horizonMs: Number(cfg.horizonMs), maxSamples: Number(cfg.maxSamples), roundTripCostPct: Number(cfg.roundTripCostPct), storagePath }
   };
 }
 
