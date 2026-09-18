@@ -21,6 +21,9 @@ import {
   getEquity
 } from "./Papertrader.js";
 import { createDashboardServer } from "./DashboardServer.js";
+import { createPaperPerformanceJournal } from "./PaperPerformanceJournal.js";
+import { createGoPlusTokenSecurityAdapter } from "./GoPlusTokenSecurityAdapter.js";
+import { createTokenSafetyScanner } from "./TokenSafetyScanner.js";
 import { log, logError } from "./logger.js";
 
 const state = createPaperTrader(config.startBalance);
@@ -43,6 +46,15 @@ const reliability = createPipelineReliability({
     }
   }
 });
+const paperPerformance = createPaperPerformanceJournal({
+  storagePath: process.env.PAPER_PERFORMANCE_PATH || "data/paper-performance.jsonl",
+  initialBalanceUsd: config.startBalance
+});
+const goPlusSecurity = createGoPlusTokenSecurityAdapter({
+  accessToken: config.goPlusAccessToken
+});
+const tokenSafety = createTokenSafetyScanner();
+
 const statisticalJournal = createStatisticalJournal({
   horizonMs: config.statisticalHorizonMs,
   maxSamples: config.statisticalMaxSamples,
@@ -64,6 +76,8 @@ let latestScanAt = 0;
 let latestResearch = null;
 let latestFusedSignal = null;
 let latestCandidates = null;
+let latestTokenSecurity = null;
+let latestSafetyScan = null;
 let tickInFlight = false;
 
 function dailyPnlPct(price) {
@@ -102,6 +116,41 @@ function updateUniverse(ticker) {
   if (!ticker?.productId) return null;
   marketUniverse.set(ticker.productId, ticker);
   return refreshMultiCoinCandidates(Date.now());
+}
+
+async function refreshTokenSafety() {
+  if (!config.dexChainId || !config.dexTokenAddress) {
+    latestTokenSecurity = {
+      ok: false,
+      reason: "TOKEN_SECURITY_NOT_CONFIGURED"
+    };
+    latestSafetyScan = null;
+    return latestTokenSecurity;
+  }
+
+  if (!config.goPlusAccessToken) {
+    latestTokenSecurity = {
+      ok: false,
+      reason: "GOPLUS_ACCESS_TOKEN_MISSING"
+    };
+    latestSafetyScan = null;
+    return latestTokenSecurity;
+  }
+
+  latestTokenSecurity = await goPlusSecurity.getSecurity({
+    chainId: config.dexChainId,
+    tokenAddress: config.dexTokenAddress
+  });
+
+  if (latestTokenSecurity?.ok) {
+    latestSafetyScan = tokenSafety.scan(latestTokenSecurity.token, {
+      nowMs: Date.now()
+    });
+  } else {
+    latestSafetyScan = null;
+  }
+
+  return latestTokenSecurity;
 }
 
 async function refreshDexFlow() {
@@ -153,8 +202,9 @@ function buildTradeEvidence({ scan, signal, timestamp }) {
   return {
     timestamp,
     score: null,
-    safetyScore: null,
-    safetyApproved: false,
+    score: latestSafetyScan?.score ?? null,
+    safetyScore: latestSafetyScan?.score ?? null,
+    safetyApproved: latestSafetyScan?.admitted === true,
     statisticalEdgeConfirmed: latestStatisticalEdge?.eligible === true,
     statisticalOutOfSampleValidated: latestWalkForward?.eligible === true,
     statisticalDirection: latestStatisticalEdge?.direction || "NONE",
@@ -270,6 +320,7 @@ async function tick() {
   tickInFlight = true;
   try {
     const price = await reliability.run("market-price", () => getPrice(config.asset));
+    await refreshTokenSafety();
     await refreshDexFlow();
 
     const now = Date.now();
@@ -324,6 +375,18 @@ async function tick() {
       log(`TRADE GATE HOLD | ${decision.reasons.join(",")}`);
     }
 
+    const equity = getEquity(state, price);
+    await paperPerformance.record({
+      timestamp: now,
+      price,
+      equityUsd: equity,
+      action: decision.action,
+      decisionMode: decision.mode,
+      reasons: decision.reasons,
+      hasPosition: Boolean(state.asset && state.asset !== 0),
+      evidence
+    });
+
     showStatus(price, decision.action);
     dashboard.update({
       ticker: marketTicker || {
@@ -344,7 +407,10 @@ async function tick() {
       research: latestResearch,
       scan,
       dexFlow: latestDexFlow,
-      multiCoinCandidates: latestCandidates
+      multiCoinCandidates: latestCandidates,
+      tokenSecurity: latestTokenSecurity,
+      safetyScan: latestSafetyScan,
+      paperPerformance: paperPerformance.summary()
     });
   } finally {
     tickInFlight = false;
@@ -357,6 +423,7 @@ async function start() {
   }
 
   await statisticalJournal.initialize();
+  await paperPerformance.initialize();
 
   log("================================");
   log("DEX BOT - REAL-TIME PAPER ENGINE");
@@ -379,6 +446,8 @@ async function start() {
   log(`Statistical horizon: ${config.statisticalHorizonMs / 60000} minutes`);
   log(`Statistical storage: ${config.statisticalJournalPath || "memory-only"}`);
   log("Unsafe/unknown trading evidence: REJECTED");
+  log(`Token security: ${config.dexChainId && config.dexTokenAddress ? "CONFIGURED" : "NOT CONFIGURED — DEX BUY BLOCKED"}`);
+  log("Paper performance: persistent real-data equity/drawdown/trade journal");
   log("Risk engine: trade-size + daily-loss + net-edge guard");
   log("Pipeline reliability: timeout + bounded retry + circuit breaker");
   log("Signal contract: BUY / SELL / HOLD / UNKNOWN");
