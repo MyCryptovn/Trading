@@ -10,6 +10,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      ETHEREUM_RPC_URL: ${{ secrets.ETHEREUM_RPC_URL }}
+      DEX_CHAIN_ID: ${{ vars.DEX_CHAIN_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
