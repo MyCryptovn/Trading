@@ -143,9 +143,27 @@ async function refreshTokenSafety() {
   });
 
   if (latestTokenSecurity?.ok) {
-    latestSafetyScan = tokenSafety.scan(latestTokenSecurity.token, {
-      nowMs: Date.now()
-    });
+    const configuredPool = String(config.dexPoolAddress || "").toLowerCase();
+    const matchedPool = Array.isArray(latestTokenSecurity.token?.dexPools)
+      && configuredPool
+      && latestTokenSecurity.token.dexPools.some(pool =>
+        String(pool?.pairAddress || "").toLowerCase() === configuredPool
+      );
+
+    if (!matchedPool) {
+      latestSafetyScan = {
+        safe: false,
+        admitted: false,
+        action: "REJECT",
+        score: 0,
+        reasons: ["GOPLUS_DEX_POOL_MISMATCH"],
+        warnings: []
+      };
+    } else {
+      latestSafetyScan = tokenSafety.scan(latestTokenSecurity.token, {
+        nowMs: Date.now()
+      });
+    }
   } else {
     latestSafetyScan = null;
   }
