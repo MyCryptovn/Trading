@@ -58,6 +58,10 @@ jobs:
           test -f Src/AgentPerformance.test.js
           test -f Src/DataQualityGate.js
           test -f Src/DataQualityGate.test.js
+          test -f Src/GeckoTerminalDataAdapter.js
+          test -f Src/GeckoTerminalDataAdapter.test.js
+          test -f Src/TokenSafetyScanner.js
+          test -f Src/TokenSafetyScanner.test.js
           test -f Src/TradingAgentsAdapter.js
           test -f Src/TradingAgentsAdapter.test.js
 
@@ -88,6 +92,10 @@ jobs:
           node --check Src/AgentPerformance.js
           node --check Src/AgentPerformance.test.js
           node --check Src/DataQualityGate.js
+          node --check Src/GeckoTerminalDataAdapter.js
+          node --check Src/GeckoTerminalDataAdapter.test.js
+          node --check Src/TokenSafetyScanner.js
+          node --check Src/TokenSafetyScanner.test.js
           node --check Src/TradingAgentsAdapter.js
           node --check Src/TradingAgentsAdapter.test.js
 
