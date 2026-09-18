@@ -69,6 +69,8 @@ jobs:
           test -f Src/TokenSafetyScanner.test.js
           test -f Src/TradingAgentsAdapter.js
           test -f Src/TradingAgentsAdapter.test.js
+          test -f Src/EvmRpcHealthAdapter.js
+          test -f Src/EvmRpcHealthAdapter.test.js
 
       - name: Syntax Check
         run: |
@@ -107,7 +109,11 @@ jobs:
           node --check Src/TokenSafetyScanner.test.js
           node --check Src/TradingAgentsAdapter.js
           node --check Src/TradingAgentsAdapter.test.js
+          node --check Src/EvmRpcHealthAdapter.js
+          node --check Src/EvmRpcHealthAdapter.test.js
 
+      - name: EVM RPC Health Adapter Unit Test
+        run: node Src/EvmRpcHealthAdapter.test.js
       - name: GoPlus Token Security Adapter Unit Test
         run: node Src/GoPlusTokenSecurityAdapter.test.js
       - name: Token Safety Unit Test
