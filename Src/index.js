@@ -202,7 +202,6 @@ function buildTradeEvidence({ scan, signal, timestamp }) {
   return {
     timestamp,
     score: null,
-    score: latestSafetyScan?.score ?? null,
     safetyScore: latestSafetyScan?.score ?? null,
     safetyApproved: latestSafetyScan?.admitted === true,
     statisticalEdgeConfirmed: latestStatisticalEdge?.eligible === true,
