@@ -375,6 +375,7 @@ async function tick() {
 
     const decision = decideTrade(evidence);
     let riskResult = null;
+    let executionAction = "NONE";
 
     if (decision.action === "BUY") {
       riskResult = riskCheck(evidence.netEdgePct, price);
@@ -382,10 +383,12 @@ async function tick() {
       if (!riskResult.allowed) {
         log(`RISK BLOCK BUY ${riskResult.reason} | net edge: ${Number.isFinite(riskResult.netEdgePct) ? riskResult.netEdgePct.toFixed(2) : "n/a"}%`);
       } else if (buy(state, price, riskResult.maxTradeUsd)) {
-        log(`PAPER BUY ${config.asset} at $${price.toFixed(2)} | size $${riskResult.maxTradeUsd.toFixed(2)}`);
+        executionAction = "BUY";
+        log(`PAPER BUY ${config.asset} at ${price.toFixed(2)} | size ${riskResult.maxTradeUsd.toFixed(2)}`);
       }
     } else if (decision.action === "SELL") {
       if (sell(state, price)) {
+        executionAction = "SELL";
         log(`PAPER SELL ${config.asset} at $${price.toFixed(2)} | ${decision.reasons.join(",")}`);
       }
     } else if (decision.reasons?.length) {
@@ -399,6 +402,7 @@ async function tick() {
       equityUsd: equity,
       action: decision.action,
       decisionMode: decision.mode,
+      executionAction,
       reasons: decision.reasons,
       hasPosition: Boolean(state.asset && state.asset !== 0),
       evidence
