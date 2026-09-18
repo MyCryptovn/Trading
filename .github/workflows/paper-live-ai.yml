@@ -5,7 +5,7 @@ on:
     inputs:
       provider:
         description: "AI provider"
-        required: true
+        required: false
         default: "groq"
         type: choice
         options:
@@ -13,12 +13,12 @@ on:
           - google
       duration_minutes:
         description: "Live market observation duration"
-        required: true
+        required: false
         default: "10"
         type: string
       max_candidates:
         description: "Maximum AI candidates per research cycle"
-        required: true
+        required: false
         default: "4"
         type: string
 
