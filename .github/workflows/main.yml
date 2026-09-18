@@ -44,6 +44,8 @@ jobs:
           test -f Src/PaperLiveResearchEngine.test.js
           test -f Src/AIPerformanceJournal.js
           test -f Src/AIPerformanceJournal.test.js
+          test -f Src/PaperPerformanceJournal.js
+          test -f Src/PaperPerformanceJournal.test.js
           test -f Src/FastCandidatePipeline.js
           test -f Src/FastCandidatePipeline.test.js
           test -f Src/SignalEngine.js
@@ -81,6 +83,8 @@ jobs:
           node --check Src/PaperLiveResearchEngine.test.js
           node --check Src/AIPerformanceJournal.js
           node --check Src/AIPerformanceJournal.test.js
+          node --check Src/PaperPerformanceJournal.js
+          node --check Src/PaperPerformanceJournal.test.js
           node --check Src/FastCandidatePipeline.js
           node --check Src/FastCandidatePipeline.test.js
           node --check Src/SignalEngine.js
@@ -133,6 +137,8 @@ jobs:
         run: node Src/PaperLiveResearchEngine.test.js
       - name: AI Performance Journal Unit Test
         run: node Src/AIPerformanceJournal.test.js
+      - name: Paper Performance Journal Unit Test
+        run: node Src/PaperPerformanceJournal.test.js
       - name: Fast Candidate Pipeline Unit Test
         run: node Src/FastCandidatePipeline.test.js
       - name: Signal Engine Unit Test
@@ -155,6 +161,11 @@ jobs:
         run: node Src/StatisticalEdgeEngine.test.js
       - name: Market Data Quality Gate Unit Test
         run: node Src/DataQualityGate.test.js
+      - name: Paper data persistence smoke test
+        run: |
+          rm -rf data/ci-paper
+          RUN_ONCE=1 PAPER_PERFORMANCE_PATH=data/ci-paper/paper-performance.jsonl node Src/index.js
+          test -s data/ci-paper/paper-performance.jsonl
       - name: Dashboard Smoke Test
         run: RUN_ONCE=1 node Src/index.js
       - name: Paper Bot Smoke Test
