@@ -90,6 +90,15 @@ assert.equal(result.data.uniqueBuyers, 2);
 assert.equal(result.data.uniqueSellers, 2);
 assert.equal(calls.length, 2);
 
+const second = await adapter.getFlowSnapshot({
+  network: "ethereum",
+  poolAddress: "0xPOOL"
+});
+assert.equal(second.ok, true);
+assert.equal(second.data.previousVolumeUsd, 180000);
+assert.equal(second.data.previousLiquidityUsd, 250000);
+assert.equal(second.data.previousTradeCount, 4);
+
 const missingIdentity = await adapter.getFlowSnapshot();
 assert.equal(missingIdentity.ok, false);
 assert.equal(missingIdentity.reason, "IDENTITY_FIELDS_MISSING");
