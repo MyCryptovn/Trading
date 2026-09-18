@@ -22,6 +22,18 @@ function topHolderPercent(holders) {
   return values.length ? Math.max(...values) * 100 : null;
 }
 
+function dexPools(data) {
+  if (!Array.isArray(data?.dex)) return [];
+  return data.dex
+    .filter(pool => pool && typeof pool === "object")
+    .map(pool => ({
+      pairAddress: pool.pair_address || pool.pair || pool.address || null,
+      dexName: pool.dex_name || pool.name || null,
+      liquidityUsd: finite(pool.liquidity)
+    }))
+    .filter(pool => pool.pairAddress || pool.liquidityUsd !== null);
+}
+
 function dexLiquidity(data) {
   if (!Array.isArray(data?.dex)) return null;
   const values = data.dex
@@ -71,6 +83,7 @@ function mapTokenSecurity(data, { chainId, address, observedAt }) {
     tokenSymbol: data.token_symbol || null,
     isInDex: inDex,
     trustList: flag(data.trust_list),
+    dexPools: dexPools(data),
     rawSecurityFlags: {
       isOpenSource,
       isProxy,
