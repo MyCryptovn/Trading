@@ -16,7 +16,7 @@ const safePayload = {
   sell_tax: "0.03",
   holders: [{ percent: "0.12" }, { percent: "0.08" }],
   lp_holders: [{ is_locked: "1" }],
-  dex: [{ liquidity: "150000" }],
+  dex: [{ liquidity: "150000", pair_address: "0xPOOL" }],
   token_name: "Safe Token",
   token_symbol: "SAFE"
 };
@@ -37,6 +37,7 @@ assert.equal(mapped.token.honeypot, false);
 assert.equal(mapped.token.liquidityLocked, true);
 assert.equal(mapped.token.sellTestPassed, true);
 assert.equal(mapped.token.timestampSource, "adapter_observed_at");
+assert.equal(mapped.token.dexPools[0].pairAddress, "0xPOOL");
 
 const rejected = mapTokenSecurity(
   { ...safePayload, is_honeypot: "1" },
