@@ -29,9 +29,6 @@ jobs:
     timeout-minutes: 30
     env:
       TRADINGAGENTS_ENABLED: "1"
-      TRADINGAGENTS_LLM_PROVIDER: ${{ inputs.provider }}
-      PAPER_LIVE_DURATION_MS: ${{ fromJSON(inputs.duration_minutes) * 60000 }}
-      PAPER_LIVE_MAX_CANDIDATES: ${{ inputs.max_candidates }}
       PAPER_LIVE_MAX_CONCURRENT: "2"
       MARKET_PRODUCTS: "BTC-USD,ETH-USD,SOL-USD,BNB-USD,XRP-USD,ADA-USD,DOGE-USD,AVAX-USD,LINK-USD,SUI-USD"
       TRADINGAGENTS_PYTHON: "python3"
@@ -54,10 +51,29 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Configure paper evaluation inputs
+        shell: bash
+        run: |
+          provider="${{ inputs.provider }}"
+          duration="${{ inputs.duration_minutes }}"
+          max_candidates="${{ inputs.max_candidates }}"
+          provider="${provider:-groq}"
+          duration="${duration:-10}"
+          max_candidates="${max_candidates:-4}"
+          case "$provider" in
+            groq|google) ;;
+            *) echo "Unsupported provider: $provider"; exit 1 ;;
+          esac
+          [[ "$duration" =~ ^[0-9]+$ ]] && [ "$duration" -ge 1 ] || { echo "duration_minutes must be >= 1"; exit 1; }
+          [[ "$max_candidates" =~ ^[0-9]+$ ]] && [ "$max_candidates" -ge 1 ] || { echo "max_candidates must be >= 1"; exit 1; }
+          echo "TRADINGAGENTS_LLM_PROVIDER=$provider" >> "$GITHUB_ENV"
+          echo "PAPER_LIVE_DURATION_MS=$((duration * 60000))" >> "$GITHUB_ENV"
+          echo "PAPER_LIVE_MAX_CANDIDATES=$max_candidates" >> "$GITHUB_ENV"
+
       - name: Check provider secret
         shell: bash
         run: |
-          if [ "${{ inputs.provider }}" = "groq" ]; then
+          if [ "$TRADINGAGENTS_LLM_PROVIDER" = "groq" ]; then
             test -n "$GROQ_API_KEY" || { echo "GROQ_API_KEY secret is missing"; exit 1; }
           else
             test -n "$GEMINI_API_KEY" || { echo "GEMINI_API_KEY secret is missing"; exit 1; }
