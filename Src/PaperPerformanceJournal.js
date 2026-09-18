@@ -28,6 +28,7 @@ function normalizeEvent(input = {}) {
     equityUsd,
     action,
     decisionMode: input.decisionMode ? String(input.decisionMode) : null,
+    executionAction: normalizeSide(input.executionAction) || "NONE",
     reasons: Array.isArray(input.reasons) ? input.reasons.map(String).slice(0, 20) : [],
     hasPosition: input.hasPosition === true,
     evidence: input.evidence && typeof input.evidence === "object"
@@ -114,6 +115,8 @@ export function createPaperPerformanceJournal(options = {}) {
         ticks: 0,
         buys: 0,
         sells: 0,
+        executedBuys: 0,
+        executedSells: 0,
         holds: 0,
         firstTimestamp: null,
         lastTimestamp: null,
@@ -136,11 +139,15 @@ export function createPaperPerformanceJournal(options = {}) {
     const totalReturnPct = ((latestEquityUsd - Number(cfg.initialBalanceUsd)) / Number(cfg.initialBalanceUsd)) * 100;
     const buys = events.filter(event => event.action === "BUY").length;
     const sells = events.filter(event => event.action === "SELL").length;
+    const executedBuys = events.filter(event => event.executionAction === "BUY").length;
+    const executedSells = events.filter(event => event.executionAction === "SELL").length;
 
     return {
       ticks: events.length,
       buys,
       sells,
+      executedBuys,
+      executedSells,
       holds: events.length - buys - sells,
       firstTimestamp: events[0].timestamp,
       lastTimestamp: events[events.length - 1].timestamp,
