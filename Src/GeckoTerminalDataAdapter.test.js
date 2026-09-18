@@ -123,3 +123,33 @@ assert.equal(lowLiquidity.ok, false);
 assert.equal(lowLiquidity.reason, "LIQUIDITY_TOO_LOW");
 
 console.log("GeckoTerminal adapter unit test passed");
+
+
+const missingTimestampAdapter = createGeckoTerminalDataAdapter({
+  clock: () => now,
+  fetchImpl: async url => ({
+    ok: true,
+    async json() {
+      if (url.endsWith("/trades")) {
+        return { data: [{ attributes: { kind: "buy", volume_in_usd: "1000" } }] };
+      }
+      return {
+        data: {
+          attributes: {
+            address: "0xNO_TIMESTAMP",
+            reserve_in_usd: "100000"
+          }
+        }
+      };
+    }
+  })
+});
+
+const missingTimestamp = await missingTimestampAdapter.getFlowSnapshot({
+  network: "ethereum",
+  poolAddress: "0xNO_TIMESTAMP"
+});
+assert.equal(missingTimestamp.ok, false);
+assert.equal(missingTimestamp.reason, "MISSING_PROVIDER_TIMESTAMP");
+
+console.log("GeckoTerminal missing timestamp fail-closed test passed");
