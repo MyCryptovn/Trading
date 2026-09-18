@@ -105,6 +105,8 @@ export function createGeckoTerminalDataAdapter({
     ? largeTradeUsd
     : DEFAULTS.largeTradeUsd;
 
+  const previousSnapshots = new Map();
+
   async function getJson(url) {
     const response = await fetchImpl(url, {
       headers: { accept: "application/json" }
@@ -178,33 +180,43 @@ export function createGeckoTerminalDataAdapter({
       const volumeUsd = parseNumber(attributes.volume_usd?.h1);
       const priceUsd = finitePositive(parseNumber(attributes.base_token_price_usd));
       const pair = attributes.name || null;
+      const cacheKey = `${network}:${poolAddress}`;
+      const previous = previousSnapshots.get(cacheKey) || null;
+      const data = {
+        chain: network,
+        address: attributes.address || poolAddress,
+        pair,
+        source: "geckoterminal",
+        priceUsd,
+        liquidityUsd,
+        buyVolumeUsd: trades.buyVolumeUsd,
+        sellVolumeUsd: trades.sellVolumeUsd,
+        volumeUsd,
+        previousVolumeUsd: previous?.volumeUsd ?? null,
+        previousLiquidityUsd: previous?.liquidityUsd ?? null,
+        tradeCount: trades.tradeCount,
+        previousTradeCount: previous?.tradeCount ?? null,
+        uniqueBuyers: trades.uniqueBuyers,
+        uniqueSellers: trades.uniqueSellers,
+        largeBuyUsd: trades.largeBuyUsd,
+        largeSellUsd: trades.largeSellUsd,
+        washTradeRisk: null,
+        timestamp: new Date(timestamp).toISOString()
+      };
+
+      previousSnapshots.set(cacheKey, {
+        volumeUsd,
+        liquidityUsd,
+        tradeCount: trades.tradeCount,
+        timestamp
+      });
 
       return {
         ok: true,
         reason: "VALID",
         ageMs,
         liquidityUsd,
-        data: {
-          chain: network,
-          address: attributes.address || poolAddress,
-          pair,
-          source: "geckoterminal",
-          priceUsd,
-          liquidityUsd,
-          buyVolumeUsd: trades.buyVolumeUsd,
-          sellVolumeUsd: trades.sellVolumeUsd,
-          volumeUsd,
-          previousVolumeUsd: null,
-          previousLiquidityUsd: null,
-          tradeCount: trades.tradeCount,
-          previousTradeCount: null,
-          uniqueBuyers: trades.uniqueBuyers,
-          uniqueSellers: trades.uniqueSellers,
-          largeBuyUsd: trades.largeBuyUsd,
-          largeSellUsd: trades.largeSellUsd,
-          washTradeRisk: null,
-          timestamp: new Date(timestamp).toISOString()
-        }
+        data
       };
     } catch (error) {
       return {
