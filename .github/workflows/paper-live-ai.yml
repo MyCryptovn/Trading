@@ -73,11 +73,22 @@ jobs:
           node --check Src/index.js
           node --check Src/TradeDecisionGate.js
           node --check Src/PaperLiveResearchEngine.js
+          node --check Src/AIPerformanceJournal.js
           node --check Src/run-paper-live-ai.js
+          node --check Src/MarketFeed.js
           python3 -m py_compile Python/tradingagents_runner.py
           node Src/TradeDecisionGate.test.js
           node Src/PaperLiveResearchEngine.test.js
+          node Src/AIPerformanceJournal.test.js
           node Src/TradingAgentsAdapter.test.js
 
       - name: Run live-market paper AI evaluation
         run: node Src/run-paper-live-ai.js
+
+      - name: Upload empirical AI journal
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-performance-journal
+          path: data/ai-performance-journal.jsonl
+          if-no-files-found: ignore
