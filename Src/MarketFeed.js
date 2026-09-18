@@ -26,6 +26,21 @@ function resolveProducts(products) {
   return configured.length ? [...new Set(configured)] : DEFAULT_PRODUCTS;
 }
 
+function eventTimestamp(message, event, ticker, receivedAtMs) {
+  const candidate = ticker?.timestamp || event?.timestamp || message?.timestamp;
+  const parsed = candidate ? new Date(candidate).getTime() : NaN;
+  if (Number.isFinite(parsed)) {
+    return {
+      timestamp: new Date(parsed).toISOString(),
+      timestampSource: "provider"
+    };
+  }
+  return {
+    timestamp: new Date(receivedAtMs).toISOString(),
+    timestampSource: "receive_time"
+  };
+}
+
 export function startMarketFeed({
   products,
   onTicker,
@@ -52,6 +67,7 @@ export function startMarketFeed({
     });
 
     ws.on("message", raw => {
+      const receivedAtMs = Date.now();
       try {
         const message = JSON.parse(raw.toString());
 
@@ -77,6 +93,8 @@ export function startMarketFeed({
               ? ((ask - bid) / price) * 100
               : null;
 
+            const timing = eventTimestamp(message, event, ticker, receivedAtMs);
+
             onTicker?.({
               productId: ticker.product_id,
               price,
@@ -85,7 +103,9 @@ export function startMarketFeed({
               spreadPct,
               volume24h: Number(ticker.volume_24_h),
               change24hPct: Number(ticker.price_percent_chg_24_h),
-              timestamp: new Date().toISOString()
+              timestamp: timing.timestamp,
+              timestampSource: timing.timestampSource,
+              receivedAt: new Date(receivedAtMs).toISOString()
             });
           }
         }
