@@ -16,11 +16,6 @@ function normalizeCandidate(candidate, nowMs, maxAgeMs) {
   return { ...candidate, timestamp };
 }
 
-/**
- * Bounded AI research fan-out. It deliberately limits expensive model calls
- * after cheap market triage. Research results remain observational: this
- * router has no wallet, signing, or execution capability.
- */
 export function createAIResearchRouter(options = {}) {
   const cfg = { ...DEFAULTS, ...options };
   if (!finite(cfg.maxCandidates) || Number(cfg.maxCandidates) < 1) {
@@ -53,14 +48,28 @@ export function createAIResearchRouter(options = {}) {
         if (index >= selected.length) return;
         const candidate = selected[index];
         try {
-          results[index] = await analyze(candidate);
+          const analyzed = await analyze(candidate);
+          results[index] = {
+            ...analyzed,
+            productId: analyzed?.productId || candidate.productId,
+            observation: {
+              productId: candidate.productId,
+              price: Number(candidate.price),
+              timestamp: Number(candidate.timestamp)
+            }
+          };
         } catch (error) {
           results[index] = {
             ok: false,
             productId: candidate.productId,
             action: "UNKNOWN",
             confidence: null,
-            reason: error instanceof Error ? error.message : "AI_RESEARCH_ERROR"
+            reason: error instanceof Error ? error.message : "AI_RESEARCH_ERROR",
+            observation: {
+              productId: candidate.productId,
+              price: Number(candidate.price),
+              timestamp: Number(candidate.timestamp)
+            }
           };
         }
       }
