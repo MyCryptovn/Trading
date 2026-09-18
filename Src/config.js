@@ -94,5 +94,8 @@ export const config = {
 
   dexNetwork: process.env.DEX_NETWORK || "",
   dexPoolAddress: process.env.DEX_POOL_ADDRESS || "",
-  dexAsset: process.env.DEX_ASSET || ""
+  dexAsset: process.env.DEX_ASSET || "",
+  dexTokenAddress: process.env.DEX_TOKEN_ADDRESS || "",
+  dexChainId: process.env.DEX_CHAIN_ID || "",
+  goPlusAccessToken: process.env.GOPLUS_ACCESS_TOKEN || ""
 };
