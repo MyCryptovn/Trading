@@ -2,6 +2,7 @@ import { startMarketFeed } from "./MarketFeed.js";
 import { createMarketDataQualityGate } from "./DataQualityGate.js";
 import { createMultiCoinCandidateEngine } from "./MultiCoinCandidateEngine.js";
 import { createMultiCoinResearchPipeline } from "./MultiCoinResearchPipeline.js";
+import { createAIPerformanceJournal } from "./AIPerformanceJournal.js";
 import { normalizeAction } from "./SignalContract.js";
 
 const DEFAULTS = Object.freeze({
@@ -9,7 +10,8 @@ const DEFAULTS = Object.freeze({
   maxCandidates: 8,
   maxConcurrent: 2,
   researchIntervalMs: 5 * 60 * 1000,
-  maxAgeMs: 120000
+  maxAgeMs: 120000,
+  aiJournalHorizonMs: 15 * 60 * 1000
 });
 
 export function createPaperLiveResearchEngine(options = {}) {
@@ -25,6 +27,10 @@ export function createPaperLiveResearchEngine(options = {}) {
     maxAgeMs: cfg.maxAgeMs,
     minIntervalMs: cfg.researchIntervalMs
   });
+  const aiJournal = options.aiJournal || createAIPerformanceJournal({
+    storagePath: options.aiJournalStoragePath,
+    horizonMs: cfg.aiJournalHorizonMs
+  });
   const feedFactory = options.feedFactory || startMarketFeed;
 
   const universe = new Map();
@@ -36,6 +42,8 @@ export function createPaperLiveResearchEngine(options = {}) {
     universeSize: 0,
     researchRuns: 0,
     researchSelected: 0,
+    aiObservationsOpened: 0,
+    aiObservationsResolved: 0,
     actions: { BUY: 0, SELL: 0, HOLD: 0, UNKNOWN: 0 },
     errors: 0
   };
@@ -48,6 +56,7 @@ export function createPaperLiveResearchEngine(options = {}) {
       throw new TypeError("durationMs must be > 0");
     }
 
+    await aiJournal.initialize();
     stats.startedAt = Date.now();
     let resolveDone;
     const done = new Promise(resolve => { resolveDone = resolve; });
@@ -73,6 +82,16 @@ export function createPaperLiveResearchEngine(options = {}) {
             for (const item of result.results || []) {
               const action = normalizeAction(item?.action);
               stats.actions[action] += 1;
+              const observation = item?.observation;
+              if (action && observation) {
+                const opened = await aiJournal.observe({
+                  productId: observation.productId,
+                  action,
+                  price: observation.price,
+                  timestamp: observation.timestamp
+                });
+                if (opened.accepted) stats.aiObservationsOpened += 1;
+              }
             }
           }
         } catch {
@@ -101,7 +120,8 @@ export function createPaperLiveResearchEngine(options = {}) {
       resolveDone({
         ...stats,
         elapsedMs: stats.endedAt - stats.startedAt,
-        latestResearch: researchPipeline.getLatest()
+        latestResearch: researchPipeline.getLatest(),
+        aiPerformance: aiJournal.summary()
       });
     };
 
@@ -115,6 +135,12 @@ export function createPaperLiveResearchEngine(options = {}) {
           return;
         }
         universe.set(ticker.productId, ticker);
+        const resolution = await aiJournal.resolveTick({
+          productId: ticker.productId,
+          price: ticker.price,
+          timestamp: Date.now()
+        });
+        stats.aiObservationsResolved += resolution.samples?.length || 0;
         stats.universeSize = universe.size;
         scheduleResearch();
       },
@@ -127,7 +153,7 @@ export function createPaperLiveResearchEngine(options = {}) {
     return done;
   }
 
-  return { run, stats, config: cfg };
+  return { run, stats, config: cfg, aiJournal };
 }
 
 export const PAPER_LIVE_RESEARCH_DEFAULTS = DEFAULTS;
