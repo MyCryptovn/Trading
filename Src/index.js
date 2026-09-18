@@ -24,6 +24,7 @@ import { createDashboardServer } from "./DashboardServer.js";
 import { createPaperPerformanceJournal } from "./PaperPerformanceJournal.js";
 import { createGoPlusTokenSecurityAdapter } from "./GoPlusTokenSecurityAdapter.js";
 import { createTokenSafetyScanner } from "./TokenSafetyScanner.js";
+import { createEvmRpcHealthAdapter } from "./EvmRpcHealthAdapter.js";
 import { log, logError } from "./logger.js";
 
 const state = createPaperTrader(config.startBalance);
@@ -54,6 +55,11 @@ const goPlusSecurity = createGoPlusTokenSecurityAdapter({
   accessToken: config.goPlusAccessToken
 });
 const tokenSafety = createTokenSafetyScanner();
+const evmRpc = createEvmRpcHealthAdapter({
+  rpcUrl: config.ethereumRpcUrl,
+  expectedChainId: config.dexChainId || "1",
+  timeoutMs: config.ethereumRpcTimeoutMs
+});
 
 const statisticalJournal = createStatisticalJournal({
   horizonMs: config.statisticalHorizonMs,
@@ -337,6 +343,13 @@ async function tick() {
   tickInFlight = true;
   try {
     const price = await reliability.run("market-price", () => getPrice(config.asset));
+    const rpcHealth = await evmRpc.health();
+    if (!rpcHealth.ok) {
+      log(`EVM RPC NOT READY | ${rpcHealth.reason}`);
+    } else {
+      log(`EVM RPC OK | chain ${rpcHealth.chainId} | block ${rpcHealth.blockNumber}`);
+    }
+
     await refreshTokenSafety();
     await refreshDexFlow();
 
