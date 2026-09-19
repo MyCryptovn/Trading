@@ -220,12 +220,13 @@ function buildStatisticalContext() {
 function buildTradeEvidence({ scan, signal, timestamp }) {
   const flow = signalCapitalFlow();
   const flowDirection = actionToDirection(flow?.action);
-  const momentumDirection = actionToDirection(signal?.action);
+  const momentumDirection = Number(scan?.movePct) > 0 ? "UP" : Number(scan?.movePct) < 0 ? "DOWN" : "NEUTRAL";
   const aiDecisionAction = normalizeAction(latestResearch?.action);
+  const directionAction = normalizeAction(latestFusedSignal?.action);
 
   return {
     timestamp,
-    score: null,
+    score: latestCandidates?.candidates?.find(candidate => candidate.productId === `${config.asset}-USD`)?.triageScore ?? null,
     safetyScore: latestSafetyScan?.score ?? null,
     safetyApproved: latestSafetyScan?.admitted === true,
     statisticalEdgeConfirmed: latestStatisticalEdge?.eligible === true,
@@ -245,6 +246,7 @@ function buildTradeEvidence({ scan, signal, timestamp }) {
     opportunity: false,
     signalAction: normalizeAction(signal?.action),
     aiDecisionAction,
+    directionAction,
     aiConfidence: latestResearch?.confidence ?? null,
     aiDecisionSource: latestResearch?.source || "tradingagents"
   };
