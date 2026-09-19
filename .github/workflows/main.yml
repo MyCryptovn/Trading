@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ETHEREUM_RPC_URL: ${{ secrets.ETHEREUM_RPC_URL }}
+      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+      ETHERSCAN_CHAIN_ID: ${{ vars.DEX_CHAIN_ID }}
       DEX_CHAIN_ID: ${{ vars.DEX_CHAIN_ID }}
     steps:
       - name: Checkout
@@ -123,6 +125,13 @@ jobs:
 
       - name: EVM RPC Health Adapter Unit Test
         run: node Src/EvmRpcHealthAdapter.test.js
+      - name: Etherscan Secret Wiring Check
+        run: |
+          if [ -n "$ETHERSCAN_API_KEY" ]; then
+            echo "Etherscan API secret: CONFIGURED"
+          else
+            echo "Etherscan API secret: NOT CONFIGURED (adapter remains fail-closed)"
+          fi
       - name: Etherscan Data Adapter Unit Test
         run: node Src/EtherscanDataAdapter.test.js
       - name: Paper Decision Path Regression Test
