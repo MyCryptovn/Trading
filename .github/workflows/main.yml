@@ -73,7 +73,9 @@ jobs:
           test -f Src/TradingAgentsAdapter.js
           test -f Src/TradingAgentsAdapter.test.js
           test -f Src/EvmRpcHealthAdapter.js
-          test -f Src/EvmRpcHealthAdapter.test.js\n          test -f Src/EtherscanDataAdapter.js\n          test -f Src/EtherscanDataAdapter.test.js
+          test -f Src/EvmRpcHealthAdapter.test.js
+          test -f Src/EtherscanDataAdapter.js
+          test -f Src/EtherscanDataAdapter.test.js
 
       - name: Syntax Check
         run: |
@@ -113,11 +115,15 @@ jobs:
           node --check Src/TradingAgentsAdapter.js
           node --check Src/TradingAgentsAdapter.test.js
           node --check Src/EvmRpcHealthAdapter.js
-          node --check Src/EvmRpcHealthAdapter.test.js\n          node --check Src/EtherscanDataAdapter.js\n          node --check Src/EtherscanDataAdapter.test.js
+          node --check Src/EvmRpcHealthAdapter.test.js
+          node --check Src/EtherscanDataAdapter.js
+          node --check Src/EtherscanDataAdapter.test.js
 
       - name: EVM RPC Health Adapter Unit Test
         run: node Src/EvmRpcHealthAdapter.test.js
-      - name: Etherscan Data Adapter Unit Test\n        run: node Src/EtherscanDataAdapter.test.js\n      - name: GoPlus Token Security Adapter Unit Test
+      - name: Etherscan Data Adapter Unit Test
+        run: node Src/EtherscanDataAdapter.test.js
+      - name: GoPlus Token Security Adapter Unit Test
         run: node Src/GoPlusTokenSecurityAdapter.test.js
       - name: Token Safety Unit Test
         run: node Src/TokenSafetyScanner.test.js
