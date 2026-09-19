@@ -32,6 +32,10 @@ export function decideTrade(input = {}, options = {}) {
   const momentumDirection = String(input.momentumDirection || "UNKNOWN").toUpperCase();
   const newsRisk = String(input.newsRisk || "NONE").toUpperCase();
   const aiDecisionAction = String(input.aiDecisionAction || "UNKNOWN").toUpperCase();
+  const directionAction = String(input.directionAction || "UNKNOWN").toUpperCase();
+  const effectiveDirection = aiDecisionAction === "BUY" || aiDecisionAction === "SELL"
+    ? aiDecisionAction
+    : directionAction;
 
   if (!finite(timestamp) || timestamp > now + 30000 || now - timestamp > cfg.maxDataAgeMs) {
     return { action: "HOLD", mode: "NONE", reasons: ["STALE_OR_INVALID_DATA"] };
@@ -39,18 +43,18 @@ export function decideTrade(input = {}, options = {}) {
 
   // TradingAgents is the directional decision authority. Deterministic
   // controls can veto an AI decision, but they must not invent a direction.
-  if (!hasPosition && aiDecisionAction !== "BUY") {
-    if (aiDecisionAction === "SELL") {
-      return { action: "HOLD", mode: "NONE", reasons: ["AI_DECISION_SELL_WITHOUT_POSITION"] };
+  if (!hasPosition && effectiveDirection !== "BUY") {
+    if (effectiveDirection === "SELL") {
+      return { action: "HOLD", mode: "NONE", reasons: ["SELL_WITHOUT_POSITION"] };
     }
-    return { action: "HOLD", mode: "NONE", reasons: ["AI_DECISION_NOT_BUY"] };
+    return { action: "HOLD", mode: "NONE", reasons: ["NO_VALID_BUY_DIRECTION"] };
   }
 
-  if (hasPosition && aiDecisionAction === "SELL") {
+  if (hasPosition && effectiveDirection === "SELL") {
     return {
       action: "SELL",
-      mode: "AI_EXIT",
-      reasons: ["TRADINGAGENTS_SELL_DECISION"]
+      mode: aiDecisionAction === "SELL" ? "AI_EXIT" : "SIGNAL_EXIT",
+      reasons: [aiDecisionAction === "SELL" ? "TRADINGAGENTS_SELL_DECISION" : "VALIDATED_SIGNAL_SELL"]
     };
   }
 
@@ -84,8 +88,10 @@ export function decideTrade(input = {}, options = {}) {
     return { action: "HOLD", mode: "POSITION_HOLD", reasons: ["POSITION_ALREADY_OPEN"] };
   }
 
-  // BUY remains fail-closed: TradingAgents chooses the direction, while the
-  // deterministic gates decide whether that decision is safe to execute.
+  // BUY remains fail-closed: a validated directional signal (or TradingAgents
+  // when available) chooses the direction; deterministic gates decide whether
+  // that direction is safe to execute. TradeDecisionGate remains the sole
+  // execution authority.
   if (input.safetyApproved !== true) reasons.push("SAFETY_NOT_EXPLICITLY_APPROVED");
   if (input.statisticalEdgeConfirmed !== true) reasons.push("STATISTICAL_EDGE_NOT_CONFIRMED");
   if (input.statisticalOutOfSampleValidated !== true) reasons.push("OUT_OF_SAMPLE_VALIDATION_NOT_CONFIRMED");
