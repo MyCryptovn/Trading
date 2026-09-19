@@ -25,6 +25,7 @@ import { createPaperPerformanceJournal } from "./PaperPerformanceJournal.js";
 import { createGoPlusTokenSecurityAdapter } from "./GoPlusTokenSecurityAdapter.js";
 import { createTokenSafetyScanner } from "./TokenSafetyScanner.js";
 import { createEvmRpcHealthAdapter } from "./EvmRpcHealthAdapter.js";
+import { createEtherscanDataAdapter } from "./EtherscanDataAdapter.js";
 import { log, logError } from "./logger.js";
 
 const state = createPaperTrader(config.startBalance);
@@ -60,6 +61,12 @@ const evmRpc = createEvmRpcHealthAdapter({
   expectedChainId: config.dexChainId || "1",
   timeoutMs: config.ethereumRpcTimeoutMs
 });
+const etherscan = createEtherscanDataAdapter({
+  apiKey: config.etherscanApiKey,
+  chainId: config.etherscanChainId,
+  baseUrl: config.etherscanBaseUrl,
+  timeoutMs: config.etherscanTimeoutMs
+});
 
 const statisticalJournal = createStatisticalJournal({
   horizonMs: config.statisticalHorizonMs,
@@ -84,6 +91,7 @@ let latestFusedSignal = null;
 let latestCandidates = null;
 let latestTokenSecurity = null;
 let latestSafetyScan = null;
+let latestEtherscanStatus = null;
 let tickInFlight = false;
 
 function dailyPnlPct(price) {
@@ -175,6 +183,36 @@ async function refreshTokenSafety() {
   }
 
   return latestTokenSecurity;
+}
+
+async function refreshEtherscanStatus() {
+  if (!config.etherscanApiKey) {
+    latestEtherscanStatus = {
+      ok: false,
+      configured: false,
+      reason: "ETHERSCAN_API_KEY_MISSING",
+      chainId: etherscan.limits.chainId
+    };
+    return latestEtherscanStatus;
+  }
+
+  const result = await reliability.run(
+    "etherscan-gas-oracle",
+    () => etherscan.getGasOracle(),
+    { retries: 1, timeoutMs: config.etherscanTimeoutMs }
+  );
+
+  latestEtherscanStatus = {
+    ok: result.ok === true,
+    configured: true,
+    reason: result.reason,
+    chainId: result.chainId || etherscan.limits.chainId,
+    status: result.status ?? null,
+    message: result.message ?? null,
+    result: result.ok ? result.result : null
+  };
+
+  return latestEtherscanStatus;
 }
 
 async function refreshDexFlow() {
@@ -353,6 +391,7 @@ async function tick() {
     }
 
     await refreshTokenSafety();
+    await refreshEtherscanStatus();
     await refreshDexFlow();
 
     const now = Date.now();
@@ -446,6 +485,7 @@ async function tick() {
       multiCoinCandidates: latestCandidates,
       tokenSecurity: latestTokenSecurity,
       safetyScan: latestSafetyScan,
+      etherscan: latestEtherscanStatus,
       paperPerformance: paperPerformance.summary()
     });
   } finally {
@@ -483,6 +523,7 @@ async function start() {
   log(`Statistical storage: ${config.statisticalJournalPath || "memory-only"}`);
   log("Unsafe/unknown trading evidence: REJECTED");
   log(`Token security: ${config.dexChainId && config.dexTokenAddress ? "CONFIGURED" : "NOT CONFIGURED — DEX BUY BLOCKED"}`);
+  log(`Etherscan data: ${config.etherscanApiKey ? "CONFIGURED | chain " + config.etherscanChainId : "NOT CONFIGURED — read-only adapter idle"}`);
   log("Paper performance: persistent real-data equity/drawdown/trade journal");
   log("Risk engine: trade-size + daily-loss + net-edge guard");
   log("Pipeline reliability: timeout + bounded retry + circuit breaker");
