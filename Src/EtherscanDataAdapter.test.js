@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { createEtherscanDataAdapter } from "./EtherscanDataAdapter.js";
 
-function makeFetch(payload, status = 200) {
+function makeFetch(payload, status = 200, expectedChainId = "42161") {
   return async (url, options) => {
     assert.equal(options.method, "GET");
     const parsed = new URL(url);
     assert.equal(parsed.searchParams.get("apikey"), "test-key");
-    assert.equal(parsed.searchParams.get("chainid"), "42161");
+    assert.equal(parsed.searchParams.get("chainid"), String(expectedChainId));
     return {
       ok: status >= 200 && status < 300,
       status,
@@ -25,7 +25,7 @@ function makeFetch(payload, status = 200) {
       status: "1",
       message: "OK",
       result: [{ hash: "0xabc", tokenSymbol: "USDC" }]
-    })
+    }, 200, "42161")
   });
 
   const result = await adapter.getTokenTransfers({
@@ -62,7 +62,7 @@ function makeFetch(payload, status = 200) {
       status: "0",
       message: "No records found",
       result: []
-    })
+    }, 200, "1")
   });
 
   const result = await adapter.getLogs({
@@ -82,7 +82,7 @@ function makeFetch(payload, status = 200) {
       status: "0",
       message: "NOTOK",
       result: "Invalid API Key"
-    })
+    }, 200, "1")
   });
 
   const result = await adapter.getContractSource(
@@ -97,7 +97,7 @@ function makeFetch(payload, status = 200) {
   const adapter = createEtherscanDataAdapter({
     apiKey: "test-key",
     chainId: 1,
-    fetchImpl: makeFetch({}, 429)
+    fetchImpl: makeFetch({}, 429, "1")
   });
 
   const result = await adapter.getNativeBalance(
