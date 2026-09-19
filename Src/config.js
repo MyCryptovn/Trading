@@ -99,5 +99,9 @@ export const config = {
   dexChainId: process.env.DEX_CHAIN_ID || "",
   goPlusAccessToken: process.env.GOPLUS_ACCESS_TOKEN || "",
   ethereumRpcUrl: process.env.ETHEREUM_RPC_URL || "",
-  ethereumRpcTimeoutMs: Math.max(1000, numberEnv("ETHEREUM_RPC_TIMEOUT_MS", 10000)),\n  etherscanApiKey: process.env.ETHERSCAN_API_KEY || "",\n  etherscanChainId: process.env.ETHERSCAN_CHAIN_ID || process.env.DEX_CHAIN_ID || "1",\n  etherscanBaseUrl: process.env.ETHERSCAN_BASE_URL || "https://api.etherscan.io/v2/api",\n  etherscanTimeoutMs: Math.max(1000, numberEnv("ETHERSCAN_TIMEOUT_MS", 10000))
+  ethereumRpcTimeoutMs: Math.max(1000, numberEnv("ETHEREUM_RPC_TIMEOUT_MS", 10000)),
+  etherscanApiKey: process.env.ETHERSCAN_API_KEY || "",
+  etherscanChainId: process.env.ETHERSCAN_CHAIN_ID || process.env.DEX_CHAIN_ID || "1",
+  etherscanBaseUrl: process.env.ETHERSCAN_BASE_URL || "https://api.etherscan.io/v2/api",
+  etherscanTimeoutMs: Math.max(1000, numberEnv("ETHERSCAN_TIMEOUT_MS", 10000))
 };
