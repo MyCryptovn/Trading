@@ -95,4 +95,62 @@ const missing = await missingKey.getSecurity({
 assert.equal(missing.ok, false);
 assert.equal(missing.reason, "GOPLUS_ACCESS_TOKEN_MISSING");
 
+let tokenCalls = 0;
+let securityCalls = 0;
+const autoTokenAdapter = createGoPlusTokenSecurityAdapter({
+  appKey: "app-key",
+  appSecret: "app-secret",
+  clock: () => observedAt,
+  fetchImpl: async (url, options) => {
+    if (url.endsWith("/token")) {
+      tokenCalls += 1;
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers["content-type"], "application/json");
+      const body = JSON.parse(options.body);
+      assert.equal(body.app_key, "app-key");
+      assert.equal(body.time, Math.floor(observedAt / 1000));
+      assert.match(body.sign, /^[a-f0-9]{40}$/);
+      return {
+        ok: true,
+        async json() {
+          return {
+            code: 1,
+            message: "ok",
+            result: {
+              access_token: "generated-token",
+              expires_in: 3600
+            }
+          };
+        }
+      };
+    }
+
+    securityCalls += 1;
+    assert.equal(options.headers.authorization, "Bearer generated-token");
+    return {
+      ok: true,
+      async json() {
+        return {
+          code: 1,
+          message: "ok",
+          result: {
+            "0xsafe": safePayload
+          }
+        };
+      }
+    };
+  }
+});
+
+assert.equal((await autoTokenAdapter.getSecurity({
+  chainId: "1",
+  tokenAddress: "0xSAFE"
+})).ok, true);
+assert.equal((await autoTokenAdapter.getSecurity({
+  chainId: "1",
+  tokenAddress: "0xSAFE"
+})).ok, true);
+assert.equal(tokenCalls, 1);
+assert.equal(securityCalls, 2);
+
 console.log("GoPlus token security adapter tests passed");
