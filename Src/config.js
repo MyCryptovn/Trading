@@ -98,6 +98,8 @@ export const config = {
   dexTokenAddress: process.env.DEX_TOKEN_ADDRESS || "",
   dexChainId: process.env.DEX_CHAIN_ID || "",
   goPlusAccessToken: process.env.GOPLUS_ACCESS_TOKEN || "",
+  goPlusAppKey: process.env.GOPLUS_APP_KEY || "",
+  goPlusAppSecret: process.env.GOPLUS_APP_SECRET || "",
   ethereumRpcUrl: process.env.ETHEREUM_RPC_URL || "",
   ethereumRpcTimeoutMs: Math.max(1000, numberEnv("ETHEREUM_RPC_TIMEOUT_MS", 10000)),
   etherscanApiKey: process.env.ETHERSCAN_API_KEY || "",
