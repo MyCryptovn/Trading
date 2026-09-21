@@ -53,7 +53,9 @@ const paperPerformance = createPaperPerformanceJournal({
   initialBalanceUsd: config.startBalance
 });
 const goPlusSecurity = createGoPlusTokenSecurityAdapter({
-  accessToken: config.goPlusAccessToken
+  accessToken: config.goPlusAccessToken,
+  appKey: config.goPlusAppKey,
+  appSecret: config.goPlusAppSecret
 });
 const tokenSafety = createTokenSafetyScanner();
 const evmRpc = createEvmRpcHealthAdapter({
