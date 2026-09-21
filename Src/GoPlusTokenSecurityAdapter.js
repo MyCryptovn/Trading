@@ -1,3 +1,5 @@
+import crypto from "node:crypto";
+
 function flag(value) {
   if (value === undefined || value === null || value === "") return null;
   return String(value) === "1";
@@ -116,29 +118,57 @@ function mapTokenSecurity(data, { chainId, address, observedAt }) {
 export function createGoPlusTokenSecurityAdapter({
   fetchImpl = globalThis.fetch,
   accessToken = process.env.GOPLUS_ACCESS_TOKEN,
+  appKey = process.env.GOPLUS_APP_KEY || "",
+  appSecret = process.env.GOPLUS_APP_SECRET || "",
   baseUrl = "https://api.gopluslabs.io/api/v1",
-  clock = () => Date.now()
+  clock = () => Date.now(),
+  tokenRefreshSkewSeconds = 60
 } = {}) {
   if (typeof fetchImpl !== "function") {
     throw new TypeError("fetchImpl must be a function");
   }
 
+  let cachedAccessToken = accessToken || "";
+  let cachedAccessTokenExpiresAtMs = accessToken ? Number.POSITIVE_INFINITY : 0;
+  let tokenRequestPromise = null;
+
+  async function getAccessToken() {
+    if (cachedAccessToken && clock() < cachedAccessTokenExpiresAtMs) return { ok: true, accessToken: cachedAccessToken, source: accessToken ? "configured" : "cached" };
+    if (!appKey || !appSecret) return { ok: false, reason: "GOPLUS_ACCESS_TOKEN_MISSING" };
+    if (tokenRequestPromise) return tokenRequestPromise;
+    tokenRequestPromise = (async () => {
+      const time = Math.floor(clock() / 1000);
+      const sign = crypto.createHash("sha1").update(appKey + time + appSecret).digest("hex");
+      try {
+        const response = await fetchImpl(baseUrl + "/token", { method: "POST", headers: { accept: "application/json", "content-type": "application/json" }, body: JSON.stringify({ app_key: appKey, sign, time }) });
+        if (!response.ok) return { ok: false, reason: "GOPLUS_TOKEN_HTTP_" + response.status };
+        const payload = await response.json();
+        if (Number(payload?.code) !== 1) return { ok: false, reason: payload?.message || "GOPLUS_TOKEN_API_ERROR" };
+        const token = payload?.result?.access_token || payload?.access_token;
+        const expiresIn = finite(payload?.result?.expires_in ?? payload?.expires_in);
+        if (!token) return { ok: false, reason: "GOPLUS_ACCESS_TOKEN_EMPTY" };
+        cachedAccessToken = String(token);
+        cachedAccessTokenExpiresAtMs = clock() + Math.max(0, ((expiresIn ?? 300) - Math.max(0, Number(tokenRefreshSkewSeconds) || 0)) * 1000);
+        return { ok: true, accessToken: cachedAccessToken, source: "generated" };
+      } catch (error) {
+        return { ok: false, reason: error instanceof Error ? error.message : "GOPLUS_TOKEN_PROVIDER_ERROR" };
+      } finally { tokenRequestPromise = null; }
+    })();
+    return tokenRequestPromise;
+  }
+
   async function getSecurity({ chainId, tokenAddress } = {}) {
-    if (!chainId || !tokenAddress) {
-      return { ok: false, reason: "TOKEN_SECURITY_IDENTITY_MISSING" };
-    }
+    if (!chainId || !tokenAddress) return { ok: false, reason: "TOKEN_SECURITY_IDENTITY_MISSING" };
+    const tokenResult = await getAccessToken();
+    if (!tokenResult.ok) return tokenResult;
 
-    if (!accessToken) {
-      return { ok: false, reason: "GOPLUS_ACCESS_TOKEN_MISSING" };
-    }
-
-    const url = `${baseUrl}/token_security/${encodeURIComponent(chainId)}?contract_addresses=${encodeURIComponent(tokenAddress)}`;
+    const url = baseUrl + "/token_security/" + encodeURIComponent(chainId) + "?contract_addresses=" + encodeURIComponent(tokenAddress);
 
     try {
       const response = await fetchImpl(url, {
         headers: {
           accept: "application/json",
-          authorization: `Bearer ${accessToken}`
+          authorization: "Bearer " + tokenResult.accessToken
         }
       });
 
@@ -168,7 +198,7 @@ export function createGoPlusTokenSecurityAdapter({
     }
   }
 
-  return { getSecurity };
+  return { getSecurity, getAccessToken };
 }
 
 export { mapTokenSecurity };
