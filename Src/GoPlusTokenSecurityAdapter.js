@@ -53,7 +53,7 @@ function mapTokenSecurity(data, { chainId, address, observedAt }) {
   const isProxy = flag(data.is_proxy);
   const isMintable = flag(data.is_mintable);
   const honeypot = flag(data.is_honeypot);
-  const cannotSellAll = flag(data.cannot_sell_all);
+  const cannotSell = flag(data.cannot_sell);\n  const cannotSellAll = flag(data.cannot_sell_all);
   const cannotBuy = flag(data.cannot_buy);
   const blacklist = flag(data.is_blacklisted);
   const inDex = flag(data.is_in_dex);
