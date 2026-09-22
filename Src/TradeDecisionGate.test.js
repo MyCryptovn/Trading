@@ -18,11 +18,17 @@ const base = {
   flowDirection: "UP",
   momentumDirection: "UP",
   newsRisk: "NONE",
-  hasPosition: false
+  hasPosition: false,
+  botMode: "paper",
+  paperSafetyBypass: false
 };
 
 assert.equal(decideTrade(base).action, "BUY");
 assert.equal(decideTrade(base).mode, "STANDARD");
+
+const paperWithoutGoPlus = decideTrade({ ...base, safetyApproved: false, safetyScore: null, paperSafetyBypass: true });
+assert.equal(paperWithoutGoPlus.action, "BUY");
+assert.equal(paperWithoutGoPlus.mode, "STANDARD");
 assert.equal(decideTrade({ ...base, aiDecisionAction: "HOLD" }).action, "HOLD");
 assert.equal(decideTrade({ ...base, aiDecisionAction: "SELL" }).action, "HOLD");
 assert.equal(decideTrade({ ...base, safetyApproved: false }).action, "HOLD");
