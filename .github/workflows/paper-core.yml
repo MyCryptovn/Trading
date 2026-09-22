@@ -1,0 +1,36 @@
+name: Paper Core Integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  paper-core:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install
+        run: npm install
+
+      - name: Syntax check
+        run: |
+          node --check Src/PaperCoreIntegration.test.js
+          node --check Src/SignalEngine.js
+          node --check Src/SignalFusion.js
+          node --check Src/TradingAgentsAdapter.js
+          node --check Src/TradeDecisionGate.js
+          node --check Src/Papertrader.js
+          node --check Src/PaperPerformanceJournal.js
+
+      - name: Run Paper Core Integration
+        run: node Src/PaperCoreIntegration.test.js
