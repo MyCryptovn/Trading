@@ -135,6 +135,16 @@ function updateUniverse(ticker) {
 }
 
 async function refreshTokenSafety() {
+  if (config.mode === "paper" && config.paperDisableGoPlus) {
+    latestTokenSecurity = {
+      ok: false,
+      bypassed: true,
+      reason: "GOPLUS_DISABLED_FOR_PAPER_TEST"
+    };
+    latestSafetyScan = null;
+    return latestTokenSecurity;
+  }
+
   if (!config.dexChainId || !config.dexTokenAddress) {
     latestTokenSecurity = {
       ok: false,
@@ -269,6 +279,8 @@ function buildTradeEvidence({ scan, signal, timestamp }) {
     score: latestCandidates?.candidates?.find(candidate => candidate.productId === `${config.asset}-USD`)?.triageScore ?? null,
     safetyScore: latestSafetyScan?.score ?? null,
     safetyApproved: latestSafetyScan?.admitted === true,
+    paperSafetyBypass: config.mode === "paper" && config.paperDisableGoPlus,
+    botMode: config.mode,
     statisticalEdgeConfirmed: latestStatisticalEdge?.eligible === true,
     statisticalOutOfSampleValidated: latestWalkForward?.eligible === true,
     statisticalDirection: latestStatisticalEdge?.direction || "NONE",
@@ -524,6 +536,7 @@ async function start() {
   log(`Statistical horizon: ${config.statisticalHorizonMs / 60000} minutes`);
   log(`Statistical storage: ${config.statisticalJournalPath || "memory-only"}`);
   log("Unsafe/unknown trading evidence: REJECTED");
+  log(`GoPlus: ${config.mode === "paper" && config.paperDisableGoPlus ? "DISABLED FOR PAPER EFFECTIVENESS TEST" : "ENABLED"}`);
   log(`Token security: ${config.dexChainId && config.dexTokenAddress ? "CONFIGURED" : "NOT CONFIGURED — DEX BUY BLOCKED"}`);
   log(`Etherscan data: ${config.etherscanApiKey ? "CONFIGURED | chain " + config.etherscanChainId : "NOT CONFIGURED — read-only adapter idle"}`);
   log("Paper performance: persistent real-data equity/drawdown/trade journal");
