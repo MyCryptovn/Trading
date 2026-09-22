@@ -10,6 +10,7 @@ function numberEnv(name, fallback) {
 
 export const config = {
   mode: process.env.BOT_MODE || "paper",
+  paperDisableGoPlus: process.env.PAPER_DISABLE_GOPLUS === "true",
 
   pollSeconds: Math.max(
     10,
