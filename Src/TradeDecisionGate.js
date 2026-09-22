@@ -36,6 +36,7 @@ export function decideTrade(input = {}, options = {}) {
   const effectiveDirection = aiDecisionAction === "BUY" || aiDecisionAction === "SELL"
     ? aiDecisionAction
     : directionAction;
+  const paperSafetyBypass = input.paperSafetyBypass === true && input.botMode === "paper";
 
   if (!finite(timestamp) || timestamp > now + 30000 || now - timestamp > cfg.maxDataAgeMs) {
     return { action: "HOLD", mode: "NONE", reasons: ["STALE_OR_INVALID_DATA"] };
@@ -92,12 +93,12 @@ export function decideTrade(input = {}, options = {}) {
   // when available) chooses the direction; deterministic gates decide whether
   // that direction is safe to execute. TradeDecisionGate remains the sole
   // execution authority.
-  if (input.safetyApproved !== true) reasons.push("SAFETY_NOT_EXPLICITLY_APPROVED");
+  if (!paperSafetyBypass && input.safetyApproved !== true) reasons.push("SAFETY_NOT_EXPLICITLY_APPROVED");
   if (input.statisticalEdgeConfirmed !== true) reasons.push("STATISTICAL_EDGE_NOT_CONFIRMED");
   if (input.statisticalOutOfSampleValidated !== true) reasons.push("OUT_OF_SAMPLE_VALIDATION_NOT_CONFIRMED");
   if (String(input.statisticalDirection || "NONE").toUpperCase() !== "UP") reasons.push("STATISTICAL_DIRECTION_NOT_UP");
   if (!finite(score) || score < cfg.minScore) reasons.push("SCORE_BELOW_READY");
-  if (!finite(safetyScore) || safetyScore < cfg.minSafetyScore) reasons.push("SAFETY_GATE_FAILED_OR_UNKNOWN");
+  if (!paperSafetyBypass && (!finite(safetyScore) || safetyScore < cfg.minSafetyScore)) reasons.push("SAFETY_GATE_FAILED_OR_UNKNOWN");
   if (!finite(spreadPct) || spreadPct < 0 || spreadPct > cfg.maxSpreadPct) reasons.push("SPREAD_TOO_WIDE_OR_UNKNOWN");
   if (!finite(netEdgePct) || netEdgePct < cfg.minNetEdgePct) reasons.push("NET_EDGE_TOO_LOW_OR_UNKNOWN");
   if (!finite(flowConfidence) || flowConfidence < cfg.minFlowConfidence) reasons.push("FLOW_CONFIRMATION_TOO_WEAK_OR_UNKNOWN");
@@ -112,7 +113,7 @@ export function decideTrade(input = {}, options = {}) {
   if (input.opportunity === true) {
     const opportunityReasons = [];
     if (score < cfg.opportunityMinScore) opportunityReasons.push("OPPORTUNITY_SCORE_TOO_LOW");
-    if (safetyScore < cfg.opportunityMinSafetyScore) opportunityReasons.push("OPPORTUNITY_SAFETY_TOO_LOW");
+    if (!paperSafetyBypass && safetyScore < cfg.opportunityMinSafetyScore) opportunityReasons.push("OPPORTUNITY_SAFETY_TOO_LOW");
     if (netEdgePct < cfg.opportunityMinNetEdgePct) opportunityReasons.push("OPPORTUNITY_NET_EDGE_TOO_LOW");
     if (flowConfidence < cfg.opportunityMinFlowConfidence) opportunityReasons.push("OPPORTUNITY_FLOW_CONFIDENCE_TOO_LOW");
 
