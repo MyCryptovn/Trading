@@ -18,5 +18,7 @@ jobs:
       - run: node --check Src/TradeDecisionGate.js
       - run: node --check Src/TradeDecisionGate.test.js
       - run: node Src/TradeDecisionGate.test.js
+      - run: node --check Src/PaperCoreIntegration.test.js
+      - run: node Src/PaperCoreIntegration.test.js
 
 # CI trigger checkpoint: TradeDecisionGate must pass before integration.
