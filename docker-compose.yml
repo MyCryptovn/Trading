@@ -1,0 +1,22 @@
+services:
+  dex-bot-paper:
+    build: .
+    container_name: dex-bot-paper
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      BOT_MODE: paper
+      PORT: 3000
+      PAPER_PERFORMANCE_PATH: /app/data/paper-performance.jsonl
+      STATISTICAL_JOURNAL_PATH: /app/data/statistical-journal.jsonl
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
