@@ -1,0 +1,55 @@
+name: Validate Paper Runtime Container
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "runtime.env.example"
+      - "Src/**"
+      - "Python/**"
+      - "public/**"
+      - "package.json"
+      - ".github/workflows/runtime-container.yml"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "docker-compose.yml"
+      - "runtime.env.example"
+      - "Src/**"
+      - "Python/**"
+      - "public/**"
+      - "package.json"
+      - ".github/workflows/runtime-container.yml"
+
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Paper runtime image
+        run: docker build -t dex-bot-paper:ci .
+
+      - name: Container smoke test
+        run: |
+          docker run -d --name dex-bot-paper-ci             -e BOT_MODE=paper             -e PAPER_DISABLE_GOPLUS=true             -e POLL_SECONDS=60             -e START_BALANCE_USD=1000             -p 3000:3000             dex-bot-paper:ci
+          trap 'docker logs dex-bot-paper-ci || true; docker rm -f dex-bot-paper-ci || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/health > /tmp/health.json; then
+              cat /tmp/health.json
+              grep -q '"ok":true' /tmp/health.json
+              grep -q '"mode":"paper"' /tmp/health.json
+              grep -q '"realMoneyTrading":false' /tmp/health.json
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Runtime health endpoint did not become ready"
+          exit 1
