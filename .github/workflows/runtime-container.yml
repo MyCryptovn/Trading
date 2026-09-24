@@ -53,3 +53,58 @@ jobs:
           done
           echo "Runtime health endpoint did not become ready"
           exit 1
+
+  runtime-observation:
+    runs-on: ubuntu-latest
+    needs: container
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Paper runtime image
+        run: docker build -t dex-bot-paper:observation .
+
+      - name: Observe real Paper runtime
+        run: |
+          set -e
+          mkdir -p runtime-proof
+          docker run -d --name dex-bot-paper-observation             -e BOT_MODE=paper             -e PAPER_DISABLE_GOPLUS=true             -e POLL_SECONDS=10             -e START_BALANCE_USD=1000             -e STATISTICAL_JOURNAL_PATH=/app/data/statistical-journal.jsonl             -e PAPER_PERFORMANCE_PATH=/app/data/paper-performance.jsonl             -p 3000:3000             dex-bot-paper:observation
+
+          trap 'docker logs dex-bot-paper-observation > runtime-proof/container.log 2>&1 || true; docker rm -f dex-bot-paper-observation || true' EXIT
+
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:3000/api/status > runtime-proof/status.json; then
+              python - <<'PY'
+          import json
+          with open("runtime-proof/status.json", "r", encoding="utf-8") as f:
+              s=json.load(f)
+          print("runtime ticks:", s.get("runtime", {}).get("ticks"))
+          print("last decision:", s.get("runtime", {}).get("lastDecision"))
+          print("markets:", len(s.get("markets", [])))
+          print("equity:", s.get("equity"))
+          print("pnlPct:", s.get("pnlPct"))
+          if s.get("runtime", {}).get("ticks", 0) >= 1:
+              raise SystemExit(0)
+          PY
+            fi
+            sleep 2
+          done
+
+          echo "Paper runtime did not record a tick" >&2
+          exit 1
+
+      - name: Print runtime proof
+        if: always()
+        run: |
+          echo "=== STATUS ==="
+          cat runtime-proof/status.json 2>/dev/null || true
+          echo "=== LOG TAIL ==="
+          tail -n 120 runtime-proof/container.log 2>/dev/null || true
+
+      - name: Upload runtime proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-runtime-proof
+          path: runtime-proof/
+          if-no-files-found: warn
