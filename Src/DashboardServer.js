@@ -16,8 +16,8 @@ export function createDashboardServer({ state, config, getEquity, getDailyPnlPct
     if (activity.length > 100) activity.length = 100;
   }
 
-  function update({ ticker = null, action = "HOLD", signal = null, scan = null, risk = null } = {}) {
-    if (ticker) market.set(ticker.productId, ticker);
+  function update({ ticker = null, action = "HOLD", signal = null, scan = null, risk = null, isTick = false, decision = null, dataQuality = null } = {}) {
+    if (ticker) {\n      market.set(ticker.productId, ticker);\n      runtime.lastMarketTickAt = ticker.timestamp || new Date().toISOString();\n    }
 
     const assetProduct = `${config.asset}-USD`;
     const price = ticker?.productId === assetProduct ? ticker.price : null;
@@ -27,7 +27,7 @@ export function createDashboardServer({ state, config, getEquity, getDailyPnlPct
       if (history.length > 180) history.shift();
     }
 
-    if (action !== "HOLD") pushActivity(`Strategy: ${action}`, action === "BUY" ? "buy" : "sell");
+    if (isTick) {\n      runtime.ticks += 1;\n      runtime.lastTickAt = new Date().toISOString();\n      runtime.lastDecision = decision?.action || action || "HOLD";\n      runtime.lastDecisionReasons = Array.isArray(decision?.reasons) ? decision.reasons.slice(0, 10) : [];\n      runtime.lastDataQuality = dataQuality || "OK";\n      pushActivity(`Tick #${runtime.ticks}: ${runtime.lastDecision} — ${runtime.lastDecisionReasons.join(",") || "no trade"}`, "tick");\n    }\n\n    if (action !== "HOLD") pushActivity(`Strategy: ${action}`, action === "BUY" ? "buy" : "sell");
     if (signal && signal.action !== "HOLD") pushActivity(`Signal: ${signal.action} — ${signal.reason}`, "signal");
     if (risk && !risk.allowed) pushActivity(`Risk blocked: ${risk.reason}`, "risk");
   }
@@ -66,7 +66,7 @@ export function createDashboardServer({ state, config, getEquity, getDailyPnlPct
 
     if (url.pathname === "/health") {
       res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ ok: true, mode: config.mode, realMoneyTrading: false, time: new Date().toISOString() }));
+      res.end(JSON.stringify({ ok: true, mode: config.mode, realMoneyTrading: false, ticks: runtime.ticks, lastTickAt: runtime.lastTickAt, lastDecision: runtime.lastDecision, time: new Date().toISOString() }));
       return;
     }
 
