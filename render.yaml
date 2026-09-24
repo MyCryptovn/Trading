@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: dex-bot-paper
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: BOT_MODE
+        value: paper
+      - key: PORT
+        value: "10000"
+      - key: POLL_SECONDS
+        value: "60"
+      - key: START_BALANCE_USD
+        value: "1000"
+      - key: PAPER_DISABLE_GOPLUS
+        value: "true"
+      - key: PAPER_PERFORMANCE_PATH
+        value: /app/data/paper-performance.jsonl
+      - key: STATISTICAL_JOURNAL_PATH
+        value: /app/data/statistical-journal.jsonl
+      - key: ETHEREUM_RPC_URL
+        sync: false
+      - key: ETHERSCAN_API_KEY
+        sync: false
+      - key: ETHERSCAN_CHAIN_ID
+        sync: false
+      - key: DEX_CHAIN_ID
+        sync: false
+      - key: DEX_NETWORK
+        sync: false
+      - key: DEX_POOL_ADDRESS
+        sync: false
+      - key: DEX_TOKEN_ADDRESS
+        sync: false
+      - key: DEX_ASSET
+        sync: false
+    disk:
+      name: paper-data
+      mountPath: /app/data
+      sizeGB: 1
