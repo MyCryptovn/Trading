@@ -12,3 +12,8 @@
             oi_bias = " Open interest is elevated with price rising (trend may continue but crowded)."
         elif oi > 50_000_000 and chg < -0.05:
             oi_bias = " Open interest elevated while price falling (possible forced selling risk)."
+
+f" funding {funding:+.4%} per hour (positive = longs pay shorts), premium {prem:+.3%},"
+            f" open interest ${oi:,.0f}, 24h volume ${vol:,.0f}."
+            f"{funding_bias}{oi_bias}"
+
